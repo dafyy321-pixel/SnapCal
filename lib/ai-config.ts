@@ -1,7 +1,7 @@
 // 豆包 API 配置
 export const DOUBAO_CONFIG = {
   apiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-  apiKey: process.env.DOUBAO_API_KEY || '1ecd94b9-3975-43d8-843c-c35116df09a0',
+  apiKey: process.env.DOUBAO_API_KEY, // 在 Vercel 或本地 .env 设置
   model: 'doubao-seed-1-6-flash-250828',
 }
 

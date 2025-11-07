@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { analyzeFoodWithDoubao } from '@/lib/doubao-service'
 
+export const runtime = 'nodejs'
+
 // 是否使用模拟数据（开发/测试时可以设为 true）
 const USE_MOCK = process.env.USE_MOCK_ANALYSIS === 'true'
 

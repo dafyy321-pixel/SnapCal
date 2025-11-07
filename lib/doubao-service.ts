@@ -58,6 +58,11 @@ export async function analyzeFoodWithDoubao(imageBase64: string) {
 
     console.log('[DoubaoService] 开始调用豆包 API...')
 
+    // 校验环境变量
+    if (!DOUBAO_CONFIG.apiKey) {
+      throw new Error('服务未配置 DOUBAO_API_KEY 环境变量，请在 Vercel 项目中添加该环境变量')
+    }
+
     // 调用豆包 API
     const response = await fetch(DOUBAO_CONFIG.apiUrl, {
       method: 'POST',
