@@ -8,9 +8,14 @@ const _geist = Geist({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Cal AI - \u667a\u80fd\u5361\u8def\u91cc\u8ffd\u8e2a",
+  title: "SnapCal",
   description: "AI\u9a71\u52a8\u7684\u5361\u8def\u91cc\u548c\u8425\u517b\u8ffd\u8e2a\u5e94\u7528",
   generator: "v0.app",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 }
 
 export const viewport: Viewport = {

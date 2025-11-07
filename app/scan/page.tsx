@@ -154,8 +154,8 @@ export default function ScanPage() {
       <div className="flex-1 relative bg-black">
         {!image && !cameraActive && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8">
-            <div className="w-32 h-32 rounded-full bg-muted/20 flex items-center justify-center">
-              <Camera className="w-16 h-16 text-muted-foreground" />
+            <div className="w-32 h-32 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/25 shadow-md">
+              <img src="/jimeng-2025-11-05-2611-logo_design,_a_minimalist,_friendly_came...png" alt="Scan" className="w-16 h-16 object-contain invert brightness-200 contrast-200 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]" />
             </div>
             <div className="text-center space-y-2">
               <h2 className="text-xl font-semibold text-white">准备扫描</h2>
@@ -184,9 +184,26 @@ export default function ScanPage() {
 
         {/* Loading Overlay */}
         {isAnalyzing && (
-          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-4">
-            <div className="w-12 h-12 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-            <p className="text-white font-medium">分析中...</p>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/80 flex flex-col items-center justify-center gap-6 backdrop-blur-sm">
+            <div className="relative">
+              <div className="w-20 h-20 border-4 border-white/20 rounded-full" />
+              <div className="absolute inset-0 w-20 h-20 border-4 border-transparent border-t-white rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-white animate-pulse" />
+              </div>
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-white text-lg font-semibold">正在分析食物...</p>
+              <p className="text-white/70 text-sm">预计 5-10 秒</p>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md">
+              <div className="flex gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+              <span className="text-white/80 text-xs font-medium">AI 识别中</span>
+            </div>
           </div>
         )}
       </div>
@@ -228,11 +245,14 @@ export default function ScanPage() {
             <Button onClick={handleReset} variant="outline" className="flex-1 h-14 text-base bg-transparent" size="lg" disabled={isAnalyzing}>
               重新拍摄
             </Button>
-            <Button onClick={handleAnalyze} disabled={isAnalyzing} className="flex-1 h-14 text-base" size="lg">
+            <Button onClick={handleAnalyze} disabled={isAnalyzing} className="flex-1 h-14 text-base relative overflow-hidden" size="lg">
               {isAnalyzing ? (
                 <>
-                  <div className="w-5 h-5 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  分析中...
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/80 to-primary animate-pulse" />
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-5 h-5 mr-2 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    分析中...
+                  </div>
                 </>
               ) : (
                 <>

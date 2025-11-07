@@ -76,21 +76,33 @@ export default function AnalyticsPage() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-card border border-border rounded-xl shadow-lg p-3">
-          <p className="text-sm font-medium mb-2">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-xs" style={{ color: entry.color }}>
-              {entry.name === "calories"
+        <div className="bg-card/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-3.5">
+          <p className="text-sm font-semibold mb-2.5 text-foreground">{label}</p>
+          <div className="space-y-1.5">
+            {payload.map((entry: any, index: number) => {
+              const name = entry.name === "calories"
                 ? "卡路里"
                 : entry.name === "protein"
                   ? "蛋白质"
                   : entry.name === "carbs"
-                    ? "碳水"
-                    : "脂肪"}
-              : {entry.value}
-              {entry.name === "calories" ? "" : "g"}
-            </p>
-          ))}
+                    ? "碳水化合物"
+                    : "脂肪"
+              return (
+                <div key={index} className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div 
+                      className="w-2.5 h-2.5 rounded-full" 
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-xs text-muted-foreground font-medium">{name}</span>
+                  </div>
+                  <span className="text-xs font-bold tabular-nums" style={{ color: entry.color }}>
+                    {entry.value}{entry.name === "calories" ? "" : "g"}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )
     }
@@ -99,7 +111,7 @@ export default function AnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-md mx-auto px-4 py-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">营养分析</h1>
@@ -127,181 +139,265 @@ export default function AnalyticsPage() {
 
         {/* Weekly Overview Cards */}
         <div className="grid grid-cols-2 gap-3">
-          <Card className="p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <Flame className="w-4 h-4 text-amber-500" />
+          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
+                <Flame className="w-4.5 h-4.5 text-amber-600" />
               </div>
-              <span className="text-xs text-muted-foreground">平均卡路里</span>
+              <span className="text-xs text-muted-foreground font-medium">平均卡路里</span>
             </div>
-            <div className="text-2xl font-bold mb-1">{stats.avgCalories}</div>
+            <div className="text-3xl font-bold mb-1.5 tabular-nums">{stats.avgCalories}</div>
             <div
               className={cn(
-                "flex items-center gap-1 text-xs font-medium",
-                stats.caloriesTrend > 0 ? "text-destructive" : "text-success",
+                "flex items-center gap-1 text-xs font-semibold",
+                stats.caloriesTrend > 0 ? "text-red-500" : "text-green-600",
               )}
             >
-              {stats.caloriesTrend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {stats.caloriesTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
               <span>{Math.abs(stats.caloriesTrend)}% vs 上周</span>
             </div>
-            <p className="text-xs text-muted-foreground/60 mt-1">(上周: {stats.prevCalories})</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.prevCalories})</p>
           </Card>
 
-          <Card className="p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-protein/10 flex items-center justify-center">
-                <Drumstick className="w-4 h-4 text-protein" />
+          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-protein/20 to-protein/10 flex items-center justify-center">
+                <Drumstick className="w-4.5 h-4.5 text-protein" />
               </div>
-              <span className="text-xs text-muted-foreground">平均蛋白质</span>
+              <span className="text-xs text-muted-foreground font-medium">平均蛋白质</span>
             </div>
-            <div className="text-2xl font-bold mb-1">{stats.avgProtein}g</div>
+            <div className="text-3xl font-bold mb-1.5 tabular-nums">{stats.avgProtein}g</div>
             <div
               className={cn(
-                "flex items-center gap-1 text-xs font-medium",
-                stats.proteinTrend > 0 ? "text-success" : "text-destructive",
+                "flex items-center gap-1 text-xs font-semibold",
+                stats.proteinTrend > 0 ? "text-green-600" : "text-red-500",
               )}
             >
-              {stats.proteinTrend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {stats.proteinTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
               <span>{Math.abs(stats.proteinTrend)}% vs 上周</span>
             </div>
-            <p className="text-xs text-muted-foreground/60 mt-1">(上周: {stats.prevProtein}g)</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.prevProtein}g)</p>
           </Card>
 
-          <Card className="p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-carbs/10 flex items-center justify-center">
-                <Wheat className="w-4 h-4 text-carbs" />
+          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-carbs/20 to-carbs/10 flex items-center justify-center">
+                <Wheat className="w-4.5 h-4.5 text-carbs" />
               </div>
-              <span className="text-xs text-muted-foreground">平均碳水</span>
+              <span className="text-xs text-muted-foreground font-medium">平均碳水</span>
             </div>
-            <div className="text-2xl font-bold mb-1">{stats.avgCarbs}g</div>
+            <div className="text-3xl font-bold mb-1.5 tabular-nums">{stats.avgCarbs}g</div>
             <div
               className={cn(
-                "flex items-center gap-1 text-xs font-medium",
-                stats.carbsTrend > 0 ? "text-destructive" : "text-success",
+                "flex items-center gap-1 text-xs font-semibold",
+                stats.carbsTrend > 0 ? "text-red-500" : "text-green-600",
               )}
             >
-              {stats.carbsTrend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {stats.carbsTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
               <span>{Math.abs(stats.carbsTrend)}% vs 上周</span>
             </div>
-            <p className="text-xs text-muted-foreground/60 mt-1">(上周: {stats.prevCarbs}g)</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.avgCarbs}g)</p>
           </Card>
 
-          <Card className="p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-full bg-fats/10 flex items-center justify-center">
-                <Droplet className="w-4 h-4 text-fats" />
+          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-fats/20 to-fats/10 flex items-center justify-center">
+                <Droplet className="w-4.5 h-4.5 text-fats" />
               </div>
-              <span className="text-xs text-muted-foreground">平均脂肪</span>
+              <span className="text-xs text-muted-foreground font-medium">平均脂肪</span>
             </div>
-            <div className="text-2xl font-bold mb-1">{stats.avgFats}g</div>
+            <div className="text-3xl font-bold mb-1.5 tabular-nums">{stats.avgFats}g</div>
             <div
               className={cn(
-                "flex items-center gap-1 text-xs font-medium",
-                stats.fatsTrend > 0 ? "text-destructive" : "text-success",
+                "flex items-center gap-1 text-xs font-semibold",
+                stats.fatsTrend > 0 ? "text-red-500" : "text-green-600",
               )}
             >
-              {stats.fatsTrend > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {stats.fatsTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
               <span>{Math.abs(stats.fatsTrend)}% vs 上周</span>
             </div>
-            <p className="text-xs text-muted-foreground/60 mt-1">(上周: {stats.prevFats}g)</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.prevFats}g)</p>
           </Card>
         </div>
 
         {/* Calorie Trend Chart */}
-        <Card className="p-5 shadow-sm">
-          <h3 className="font-semibold mb-4 text-base">卡路里趋势</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-amber-50/30">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-base">卡路里趋势</h3>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="w-2 h-2 rounded-full bg-gradient-to-r from-gray-800 to-gray-600"></div>
+              <span className="font-medium">实际摄入</span>
+              <div className="w-6 border-t-2 border-dashed border-amber-500 ml-2"></div>
+              <span className="font-medium text-amber-600">目标</span>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="calorieGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#1a1a1a" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#1a1a1a" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#374151" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#374151" stopOpacity={0.02} />
                 </linearGradient>
+                <filter id="shadow">
+                  <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.3" />
+                </filter>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <CartesianGrid 
+                strokeDasharray="3 3" 
+                stroke="hsl(var(--border))" 
+                vertical={false} 
+                opacity={0.5}
+              />
               <XAxis
                 dataKey="day"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
+                dy={5}
               />
-              <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis 
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} 
+                axisLine={false} 
+                tickLine={false}
+                width={50}
+                domain={[0, 'auto']}
+                tickFormatter={(value) => value}
+              />
               <Tooltip
                 content={<CustomTooltip />}
-                cursor={{ stroke: "#1a1a1a", strokeWidth: 1, strokeDasharray: "5 5" }}
+                cursor={{ stroke: "#9ca3af", strokeWidth: 1, strokeDasharray: "5 5", opacity: 0.5 }}
               />
               <ReferenceLine
                 y={dailyCalorieGoal}
-                stroke="#f39c12"
-                strokeDasharray="8 4"
-                strokeWidth={2}
+                stroke="#f59e0b"
+                strokeDasharray="6 4"
+                strokeWidth={2.5}
                 label={{
-                  value: `目标: ${dailyCalorieGoal}`,
+                  value: `${dailyCalorieGoal}`,
                   position: "right",
-                  fill: "#f39c12",
-                  fontSize: 11,
-                  fontWeight: 500,
+                  fill: "#d97706",
+                  fontSize: 10,
+                  fontWeight: 600,
+                  offset: 10,
                 }}
               />
               <Area
                 type="monotone"
                 dataKey="calories"
-                stroke="#1a1a1a"
-                strokeWidth={4}
+                stroke="#1f2937"
+                strokeWidth={3}
                 fill="url(#calorieGradient)"
-                dot={{ fill: "#1a1a1a", strokeWidth: 3, r: 6, stroke: "#ffffff" }}
-                activeDot={{ r: 8, strokeWidth: 3 }}
+                dot={{ 
+                  fill: "#ffffff", 
+                  strokeWidth: 2.5, 
+                  r: 5, 
+                  stroke: "#1f2937",
+                  filter: "url(#shadow)"
+                }}
+                activeDot={{ 
+                  r: 7, 
+                  strokeWidth: 3,
+                  fill: "#ffffff",
+                  stroke: "#1f2937"
+                }}
               />
             </AreaChart>
           </ResponsiveContainer>
         </Card>
 
         {/* Macronutrient Distribution */}
-        <Card className="p-5 shadow-sm">
+        <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-orange-50/20">
           <h3 className="font-semibold mb-4 text-base">营养素分布</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="proteinGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#dc2626" stopOpacity={0.85} />
+                </linearGradient>
+                <linearGradient id="carbsGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#d97706" stopOpacity={0.85} />
+                </linearGradient>
+                <linearGradient id="fatsGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#2563eb" stopOpacity={0.85} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid 
+                strokeDasharray="3 3" 
+                stroke="hsl(var(--border))" 
+                vertical={false}
+                opacity={0.5}
+              />
               <XAxis
                 dataKey="day"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
+                dy={5}
               />
-              <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} axisLine={false} tickLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="protein" stackId="a" fill="#e74c3c" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="carbs" stackId="a" fill="#f39c12" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="fats" stackId="a" fill="#3498db" radius={[4, 4, 0, 0]} />
+              <YAxis 
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} 
+                axisLine={false} 
+                tickLine={false}
+                width={50}
+                domain={[0, 'auto']}
+                tickFormatter={(value) => value}
+              />
+              <Tooltip 
+                content={<CustomTooltip />}
+                cursor={{ fill: "rgba(0, 0, 0, 0.03)" }}
+              />
+              <Bar 
+                dataKey="protein" 
+                stackId="a" 
+                fill="url(#proteinGradient)" 
+                radius={[0, 0, 0, 0]}
+                maxBarSize={40}
+              />
+              <Bar 
+                dataKey="carbs" 
+                stackId="a" 
+                fill="url(#carbsGradient)" 
+                radius={[0, 0, 0, 0]}
+                maxBarSize={40}
+              />
+              <Bar 
+                dataKey="fats" 
+                stackId="a" 
+                fill="url(#fatsGradient)" 
+                radius={[6, 6, 0, 0]}
+                maxBarSize={40}
+              />
             </BarChart>
           </ResponsiveContainer>
-          <div className="flex items-center justify-center gap-6 mt-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#e74c3c" }} />
-              <span className="text-xs text-muted-foreground">蛋白质</span>
+          <div className="flex items-center justify-center gap-5 mt-4">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm shadow-sm" style={{ background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)" }} />
+              <span className="text-xs text-muted-foreground font-medium">蛋白质</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#f39c12" }} />
-              <span className="text-xs text-muted-foreground">碳水化合物</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm shadow-sm" style={{ background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" }} />
+              <span className="text-xs text-muted-foreground font-medium">碳水化合物</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#3498db" }} />
-              <span className="text-xs text-muted-foreground">脂肪</span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-3 rounded-sm shadow-sm" style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" }} />
+              <span className="text-xs text-muted-foreground font-medium">脂肪</span>
             </div>
           </div>
 
-          <div className="mt-6 pt-6 border-t border-border">
-            <h4 className="font-medium mb-4 text-sm">本周营养素总览</h4>
-            <div className="flex items-center justify-between gap-6">
-              <ResponsiveContainer width={140} height={140}>
+          <div className="mt-5 pt-5 border-t border-border">
+            <h4 className="font-semibold mb-3 text-sm">本周营养素总览</h4>
+            <div className="flex items-center justify-between gap-5">
+              <ResponsiveContainer width={130} height={130}>
                 <PieChart>
                   <Pie
                     data={macroDistribution}
                     cx="50%"
                     cy="50%"
-                    innerRadius={40}
-                    outerRadius={60}
+                    innerRadius={38}
+                    outerRadius={58}
                     paddingAngle={2}
                     dataKey="value"
                   >
@@ -311,14 +407,14 @@ export default function AnalyticsPage() {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex-1 space-y-3">
+              <div className="flex-1 space-y-2.5">
                 {macroDistribution.map((macro) => (
                   <div key={macro.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: macro.color }} />
-                      <span className="text-xs text-muted-foreground">{macro.name}</span>
+                      <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: macro.color }} />
+                      <span className="text-xs text-muted-foreground font-medium">{macro.name}</span>
                     </div>
-                    <span className="text-sm font-semibold">{macro.percentage}%</span>
+                    <span className="text-sm font-bold tabular-nums">{macro.percentage}%</span>
                   </div>
                 ))}
               </div>
@@ -327,15 +423,15 @@ export default function AnalyticsPage() {
         </Card>
 
         {/* Insights */}
-        <Card className="p-4 shadow-sm">
-          <h3 className="font-semibold mb-4">本周洞察</h3>
-          <div className="space-y-3">
+        <Card className="p-4 shadow-md border-0">
+          <h3 className="font-semibold mb-3 text-base">本周洞察</h3>
+          <div className="space-y-2.5">
             <button
-              className="w-full flex gap-3 p-3 bg-success/10 rounded-lg hover:bg-success/15 transition-colors text-left"
+              className="w-full flex gap-3 p-3 bg-green-50 rounded-xl hover:bg-green-100 transition-all border border-green-100 text-left"
               onClick={() => alert("查看蛋白质摄入详情和建议")}
             >
-              <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-4 h-4 text-success" />
+              <div className="w-9 h-9 rounded-xl bg-green-200/50 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="w-4.5 h-4.5 text-green-600" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium mb-1">蛋白质摄入稳定</p>
@@ -344,11 +440,11 @@ export default function AnalyticsPage() {
               <ChevronRight className="w-4 h-4 text-muted-foreground self-center" />
             </button>
             <button
-              className="w-full flex gap-3 p-3 bg-destructive/10 rounded-lg hover:bg-destructive/15 transition-colors text-left"
+              className="w-full flex gap-3 p-3 bg-red-50 rounded-xl hover:bg-red-100 transition-all border border-red-100 text-left"
               onClick={() => alert("查看优质全谷物食物推荐")}
             >
-              <div className="w-8 h-8 rounded-full bg-destructive/20 flex items-center justify-center flex-shrink-0">
-                <TrendingDown className="w-4 h-4 text-destructive" />
+              <div className="w-9 h-9 rounded-xl bg-red-200/50 flex items-center justify-center flex-shrink-0">
+                <TrendingDown className="w-4.5 h-4.5 text-red-600" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium mb-1">碳水化合物偏高</p>

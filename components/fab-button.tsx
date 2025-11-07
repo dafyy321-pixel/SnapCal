@@ -1,6 +1,5 @@
 "use client"
 
-import { Camera } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useState, useRef, useEffect } from "react"
@@ -132,12 +131,12 @@ export function FabButton() {
       ref={buttonRef}
       onClick={handleClick}
       size="icon"
-      className="fixed w-16 h-16 rounded-full shadow-xl z-50 hover:scale-105 active:scale-95 transition-transform touch-none"
+      className="fixed w-16 h-16 rounded-full shadow-xl z-50 hover:scale-105 active:scale-95 transition-transform touch-none bg-black/90 text-white ring-1 ring-black/10 dark:bg-white/10 dark:ring-white/25"
       style={style}
       onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
     >
-      <Camera className="w-7 h-7" />
+      <img src="/jimeng-2025-11-05-2611-logo_design,_a_minimalist,_friendly_came...png" alt="Scan" className="w-7 h-7 object-contain invert dark:invert-0 brightness-150 contrast-150 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]" />
     </Button>
   )
 }

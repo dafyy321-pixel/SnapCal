@@ -1,6 +1,6 @@
 "use client"
 
-import { Apple, Flame, Drumstick, Wheat, Droplet, ArrowDown, AlertCircle } from "lucide-react"
+import { Flame, Drumstick, Wheat, Droplet, ArrowDown, AlertCircle } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
 import { FabButton } from "@/components/fab-button"
@@ -349,14 +349,14 @@ export default function HomePage() {
   const ringStrokeDashoffset = 251.2 - (251.2 * consumedPercentage) / 100
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:bg-transparent">
+    <div className="min-h-screen bg-background pb-24">
       {/* 限制最大宽度在移动设备尺寸，桌面上居中显示 */}
-      <div className="max-w-md mx-auto px-4 py-6 space-y-6 md:bg-background md:shadow-xl md:min-h-screen">
+      <div className="max-w-md mx-auto px-4 py-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Apple className="w-8 h-8 fill-foreground" />
-            <h1 className="text-2xl font-bold">Cal AI</h1>
+            <img src="/logo.png" alt="SnapCal" className="w-8 h-8 object-contain" />
+            <h1 className="text-2xl font-bold">SnapCal</h1>
           </div>
           <button
             onClick={() => setShowAchievements(true)}

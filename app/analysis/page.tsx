@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Flame, Drumstick, Wheat, Droplet, Check, Plus, Minus } from "lucide-react"
+import { ArrowLeft, Flame, Drumstick, Wheat, Droplet, Check, Plus, Minus, TrendingUp, TrendingDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
+import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 
 export default function AnalysisPage() {
   const router = useRouter()
@@ -72,6 +73,19 @@ export default function AnalysisPage() {
     return Math.round(base * servings * 10) / 10
   }
 
+  // 生成与“本周营养总览”一致的数据结构（按克数占比）
+  const macroDistribution = (() => {
+    const protein = calculateValue((displayData?.protein ?? 0))
+    const carbs = calculateValue((displayData?.carbs ?? 0))
+    const fats = calculateValue((displayData?.fats ?? 0))
+    const total = Math.max(protein + carbs + fats, 1)
+    return [
+      { name: "蛋白质", value: protein, color: "#e74c3c", percentage: ((protein / total) * 100).toFixed(1) },
+      { name: "碳水化合物", value: carbs, color: "#f39c12", percentage: ((carbs / total) * 100).toFixed(1) },
+      { name: "脂肪", value: fats, color: "#3498db", percentage: ((fats / total) * 100).toFixed(1) },
+    ]
+  })()
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -98,50 +112,51 @@ export default function AnalysisPage() {
           </div>
         </div>
 
-        <div className="p-4 space-y-6">
+        <div className="p-4 space-y-4">
           {/* Food Image - 完整显示食物图片 */}
-          <Card className="overflow-hidden shadow-sm bg-gray-50">
+          <Card className="overflow-hidden shadow-lg border-0 bg-gradient-to-br from-gray-50 to-gray-100">
             <img 
               src={displayData.image || "/placeholder.svg"} 
               alt={displayData.name} 
-              className="w-full max-h-96 object-contain" 
+              className="w-full max-h-80 object-contain p-2" 
             />
           </Card>
 
           {/* Food Name & Confidence */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">{displayData.name}</h2>
-              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-2xl font-bold leading-tight flex-1">{displayData.name}</h2>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full flex-shrink-0 ${
                 displayData.confidence >= 80 ? "bg-success/10 text-success" :
                 displayData.confidence >= 60 ? "bg-yellow-500/10 text-yellow-600" :
                 "bg-orange-500/10 text-orange-600"
               }`}>
-                <Check className="w-4 h-4" />
+                <Check className="w-3.5 h-3.5" />
                 <span className="text-sm font-semibold">{displayData.confidence}%</span>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">AI 识别置信度</p>
+            <p className="text-xs text-muted-foreground">AI 识别置信度</p>
           </div>
 
           {/* Serving Size Adjuster */}
-          <Card className="p-4 shadow-sm">
+          <Card className="p-3.5 shadow-sm border border-border/50">
             <div className="flex items-center justify-between">
-              <span className="font-semibold">份量</span>
-              <div className="flex items-center gap-3">
+              <span className="font-semibold text-sm">份量调整</span>
+              <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8 bg-transparent"
+                  className="h-9 w-9 rounded-lg hover:bg-accent"
                   onClick={() => adjustServings(-0.5)}
+                  disabled={servings <= 0.5}
                 >
                   <Minus className="w-4 h-4" />
                 </Button>
-                <span className="text-lg font-bold w-12 text-center">{servings}</span>
+                <span className="text-lg font-bold w-14 text-center tabular-nums">{servings}</span>
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8 bg-transparent"
+                  className="h-9 w-9 rounded-lg hover:bg-accent"
                   onClick={() => adjustServings(0.5)}
                 >
                   <Plus className="w-4 h-4" />
@@ -151,145 +166,54 @@ export default function AnalysisPage() {
           </Card>
 
           {/* Main Nutrition Card */}
-          <Card className="p-6 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <Flame className="w-6 h-6 text-amber-500" />
+          <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card to-muted/20">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center shadow-sm">
+                <Flame className="w-7 h-7 text-amber-600" />
               </div>
               <div>
-                <div className="text-3xl font-bold">{calculateValue(displayData.calories)}</div>
-                <div className="text-sm text-muted-foreground">卡路里</div>
+                <div className="text-4xl font-bold tracking-tight tabular-nums">{calculateValue(displayData.calories)}</div>
+                <div className="text-sm text-muted-foreground font-medium">千卡 (kcal)</div>
               </div>
             </div>
 
-            {/* 三大营养素圆环图和数据 */}
-            <div className="flex items-center gap-6">
+            {/* 三大营养素分布（与“本周营养总览”一致风格） */}
+            <div className="flex items-center gap-5">
               {/* 圆环图 */}
-              <div className="relative w-32 h-32 flex-shrink-0">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  {(() => {
-                    // 计算总热量（每克热量：蛋白质=4, 碳水=4, 脂肪=9）
-                    const proteinCal = calculateValue(displayData.protein) * 4
-                    const carbsCal = calculateValue(displayData.carbs) * 4
-                    const fatsCal = calculateValue(displayData.fats) * 9
-                    const totalCal = proteinCal + carbsCal + fatsCal
-
-                    // 计算百分比
-                    const proteinPercent = (proteinCal / totalCal) * 100
-                    const carbsPercent = (carbsCal / totalCal) * 100
-                    const fatsPercent = (fatsCal / totalCal) * 100
-
-                    // 圆环参数
-                    const radius = 40
-                    const circumference = 2 * Math.PI * radius
-                    
-                    // 计算每个区段的长度和偏移
-                    const proteinLength = (proteinPercent / 100) * circumference
-                    const carbsLength = (carbsPercent / 100) * circumference
-                    const fatsLength = (fatsPercent / 100) * circumference
-
-                    return (
-                      <>
-                        {/* 蛋白质 */}
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r={radius}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="12"
-                          strokeDasharray={`${proteinLength} ${circumference}`}
-                          strokeDashoffset="0"
-                          className="text-protein"
-                          strokeLinecap="round"
-                        />
-                        {/* 碳水化合物 */}
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r={radius}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="12"
-                          strokeDasharray={`${carbsLength} ${circumference}`}
-                          strokeDashoffset={-proteinLength}
-                          className="text-carbs"
-                          strokeLinecap="round"
-                        />
-                        {/* 脂肪 */}
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r={radius}
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="12"
-                          strokeDasharray={`${fatsLength} ${circumference}`}
-                          strokeDashoffset={-(proteinLength + carbsLength)}
-                          className="text-fats"
-                          strokeLinecap="round"
-                        />
-                      </>
-                    )
-                  })()}
-                </svg>
-                {/* 中心文字 */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-xs text-muted-foreground">总热量</div>
-                  </div>
-                </div>
+              <div className="w-32 h-32">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={macroDistribution} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={2} dataKey="value">
+                      {macroDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
 
-              {/* 数据列表 */}
-              <div className="flex-1 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Drumstick className="w-4 h-4 text-protein" />
-                    <span className="text-sm text-muted-foreground">蛋白质</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold">{calculateValue(displayData.protein)}g</div>
-                    <div className="text-xs text-muted-foreground">
-                      {Math.round((calculateValue(displayData.protein) * 4 / calculateValue(displayData.calories)) * 100)}%
+              {/* 右侧百分比列表 */}
+              <div className="flex-1 space-y-2.5">
+                {macroDistribution.map((m) => (
+                  <div key={m.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: m.color }} />
+                      <span className="text-sm text-muted-foreground font-medium">{m.name}</span>
+                    </div>
+                    <div className="text-sm font-bold tabular-nums">
+                      {m.value}g <span className="text-xs text-muted-foreground font-medium">({m.percentage}%)</span>
                     </div>
                   </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Wheat className="w-4 h-4 text-carbs" />
-                    <span className="text-sm text-muted-foreground">碳水</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold">{calculateValue(displayData.carbs)}g</div>
-                    <div className="text-xs text-muted-foreground">
-                      {Math.round((calculateValue(displayData.carbs) * 4 / calculateValue(displayData.calories)) * 100)}%
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Droplet className="w-4 h-4 text-fats" />
-                    <span className="text-sm text-muted-foreground">脂肪</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold">{calculateValue(displayData.fats)}g</div>
-                    <div className="text-xs text-muted-foreground">
-                      {Math.round((calculateValue(displayData.fats) * 9 / calculateValue(displayData.calories)) * 100)}%
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
           </Card>
 
           {/* Additional Nutrition Info - 动态显示 */}
           {displayData.nutrition && Object.keys(displayData.nutrition).length > 0 && (
-            <Card className="p-4 shadow-sm">
-              <h3 className="font-semibold mb-4">详细营养信息</h3>
-              <div className="space-y-3">
+            <Card className="p-4 shadow-sm border border-border/50">
+              <h3 className="font-semibold text-base mb-3">详细营养信息</h3>
+              <div className="grid grid-cols-2 gap-3">
                 {Object.entries(displayData.nutrition).map(([key, value], index, array) => {
                   // 营养素名称映射
                   const nutritionLabels: Record<string, string> = {
@@ -323,17 +247,15 @@ export default function AnalysisPage() {
 
                   const label = nutritionLabels[key] || key
                   const unit = nutritionUnits[key] || 'g'
-                  const isLast = index === array.length - 1
 
                   return (
                     <div
                       key={key}
-                      className={`flex items-center justify-between py-2 ${!isLast ? 'border-b border-border' : ''}`}
+                      className="flex flex-col gap-1 p-3 rounded-lg bg-muted/30 border border-border/30"
                     >
-                      <span className="text-sm text-muted-foreground">{label}</span>
-                      <span className="font-semibold">
-                        {calculateValue(value as number)}
-                        {unit}
+                      <span className="text-xs text-muted-foreground font-medium">{label}</span>
+                      <span className="font-bold text-sm tabular-nums">
+                        {calculateValue(value as number)}{unit}
                       </span>
                     </div>
                   )
@@ -343,13 +265,13 @@ export default function AnalysisPage() {
           )}
 
           {/* Ingredients */}
-          <Card className="p-4 shadow-sm">
-            <h3 className="font-semibold mb-4">识别的食材</h3>
+          <Card className="p-4 shadow-sm border border-border/50">
+            <h3 className="font-semibold text-base mb-3">识别的食材</h3>
             <div className="flex flex-wrap gap-2">
               {displayData.ingredients && displayData.ingredients.map((ingredient: string, index: number) => (
                 <div
                   key={index}
-                  className="px-3 py-1.5 bg-secondary text-secondary-foreground rounded-full text-sm font-medium"
+                  className="px-3 py-1.5 bg-gradient-to-r from-secondary to-muted text-secondary-foreground rounded-lg text-sm font-medium border border-border/30 shadow-sm"
                 >
                   {ingredient}
                 </div>
@@ -358,7 +280,11 @@ export default function AnalysisPage() {
           </Card>
 
           {/* Save Button */}
-          <Button onClick={handleSave} className="w-full h-14 text-base" size="lg">
+          <Button 
+            onClick={handleSave} 
+            className="w-full h-12 text-base font-semibold shadow-lg" 
+            size="lg"
+          >
             <Check className="w-5 h-5 mr-2" />
             添加到今日记录
           </Button>
