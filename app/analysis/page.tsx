@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { mealsService } from "@/lib/supabase"
+import { format } from "date-fns"
 
 export default function AnalysisPage() {
   const router = useRouter()
   const [servings, setServings] = useState(1)
   const [foodData, setFoodData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   // Load analysis result from sessionStorage
   useEffect(() => {
@@ -47,22 +50,62 @@ export default function AnalysisPage() {
 
   const displayData = foodData || defaultFoodData
 
-  const handleSave = () => {
-    // Save to daily log
-    if (displayData) {
-      // Store meal data
-      const mealData = {
-        ...displayData,
-        servings: servings,
-        recordedTime: new Date().toLocaleTimeString("zh-CN", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+  const handleSave = async () => {
+    if (!displayData || saving) return
+    
+    setSaving(true)
+    try {
+      const now = new Date()
+      const mealTime = format(now, "HH:mm:ss")
+      const mealDate = format(now, "yyyy-MM-dd")
+      
+      // 根据时间自动判断餐型
+      const getMealType = () => {
+        const hour = now.getHours()
+        if (hour >= 6 && hour < 10) return "早餐"
+        if (hour >= 10 && hour < 14) return "午餐"
+        if (hour >= 14 && hour < 18) return "下午茶"
+        if (hour >= 18 && hour < 22) return "晚餐"
+        return "宵夜"
       }
-      // In production, send this to backend
-      console.log("Saving meal:", mealData)
+      
+      // 保存到数据库（包括完整营养信息）
+      const nutritionData = displayData.nutrition || {}
+      await mealsService.addMeal({
+        meal_name: displayData.name,
+        meal_type: getMealType(),
+        meal_date: mealDate,
+        meal_time: mealTime,
+        calories: Math.round(calculateValue(displayData.calories)),
+        protein: calculateValue(displayData.protein),
+        carbs: calculateValue(displayData.carbs),
+        fats: calculateValue(displayData.fats),
+        image_url: displayData.image || undefined,
+        // 详细营养信息
+        fiber: nutritionData.fiber ? calculateValue(nutritionData.fiber) : undefined,
+        sugar: nutritionData.sugar ? calculateValue(nutritionData.sugar) : undefined,
+        sodium: nutritionData.sodium ? calculateValue(nutritionData.sodium) : undefined,
+        calcium: nutritionData.calcium ? calculateValue(nutritionData.calcium) : undefined,
+        vitamin_c: nutritionData.vitaminC ? calculateValue(nutritionData.vitaminC) : undefined,
+        iron: nutritionData.iron ? calculateValue(nutritionData.iron) : undefined,
+        cholesterol: nutritionData.cholesterol ? calculateValue(nutritionData.cholesterol) : undefined,
+        saturated_fat: nutritionData.saturatedFat ? calculateValue(nutritionData.saturatedFat) : undefined,
+        trans_fat: nutritionData.transFat ? calculateValue(nutritionData.transFat) : undefined,
+        potassium: nutritionData.potassium ? calculateValue(nutritionData.potassium) : undefined,
+        vitamin_a: nutritionData.vitaminA ? calculateValue(nutritionData.vitaminA) : undefined,
+        vitamin_d: nutritionData.vitaminD ? calculateValue(nutritionData.vitaminD) : undefined,
+        vitamin_e: nutritionData.vitaminE ? calculateValue(nutritionData.vitaminE) : undefined,
+        ingredients: displayData.ingredients || undefined,
+        confidence: displayData.confidence || undefined,
+      })
+      
+      // 成功后跳转到首页
+      router.push("/")
+    } catch (error) {
+      console.error("保存餐食记录错误:", error)
+      alert("保存失败，请重试")
+      setSaving(false)
     }
-    router.push("/")
   }
 
   const adjustServings = (delta: number) => {
@@ -284,9 +327,19 @@ export default function AnalysisPage() {
             onClick={handleSave} 
             className="w-full h-12 text-base font-semibold shadow-lg" 
             size="lg"
+            disabled={saving}
           >
-            <Check className="w-5 h-5 mr-2" />
-            添加到今日记录
+            {saving ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                保存中...
+              </>
+            ) : (
+              <>
+                <Check className="w-5 h-5 mr-2" />
+                添加到今日记录
+              </>
+            )}
           </Button>
         </div>
       </div>

@@ -1,0 +1,22 @@
+# Cursor Rules for SnapCal Project
+
+## 系统环境
+
+- **操作系统**: Windows 11
+- **Shell**: PowerShell 或 CMD
+- **语言**: 所有输出必须使用**简体中文**，包括代码注释、文档、错误信息、用户提示等
+
+## 命令行使用规范
+
+### Windows 命令注意事项
+
+1. **路径分隔符**: 使用正斜杠 `/` 或双反斜杠 `\\`，避免单反斜杠 `\`
+2. **命令执行**: 
+   - 优先使用 PowerShell 命令
+   - 如需跨平台兼容，使用 Node.js 脚本而非 shell 命令
+   - 文件操作使用 Node.js `fs` 模块而非 `rm`, `cp`, `mv` 等 Unix 命令
+3. **环境变量**: 
+   - PowerShell: `$env:VARIABLE_NAME`
+   - CMD: `%VARIABLE_NAME%`
+   - Node.js: `process.env.VARIABLE_NAME`
+4. **包管理器**: 项目使用 `npm`（推荐）或 `pnpm`，避免使用 `yarn`

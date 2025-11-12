@@ -1,13 +1,46 @@
 "use client"
 
-import { Flame, Drumstick, Wheat, Droplet, ArrowDown, AlertCircle } from "lucide-react"
+import { Flame, Drumstick, Wheat, Droplet, ArrowDown, AlertCircle, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
 import { FabButton } from "@/components/fab-button"
 import { cn } from "@/lib/utils"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
+import { mealsService, authService } from "@/lib/supabase"
+import { format, addDays, startOfWeek } from "date-fns"
 
-const dailyData = {
+type MealItem = {
+  id: string
+  name: string
+  time: string
+  calories: number
+  protein: number
+  carbs: number
+  fats: number
+  image: string
+}
+
+type MealGroup = {
+  mealType: string
+  items: MealItem[]
+}
+
+type DailyData = {
+  remainingCalories: number
+  dailyGoal: number
+  macros: Array<{
+    name: string
+    value: number
+    goal: number
+    status: "剩余" | "超过"
+    progress: number
+  }>
+  mealGroups: MealGroup[]
+}
+
+// 保留作为演示数据（可选）
+const dailyData_backup = {
   13: {
     remainingCalories: 450,
     dailyGoal: 1800,
@@ -282,14 +315,37 @@ const dailyData = {
 }
 
 export default function HomePage() {
-  const [selectedDate, setSelectedDate] = useState(18)
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [selectedDate, setSelectedDate] = useState(new Date())
   const [showAchievements, setShowAchievements] = useState(false)
   const [currentEquivalent, setCurrentEquivalent] = useState(0)
   const [displayCalories, setDisplayCalories] = useState(0)
+  const [dailyGoal, setDailyGoal] = useState(1800)
+  const [dailyData, setDailyData] = useState<DailyData>({
+    remainingCalories: 1800,
+    dailyGoal: 1800,
+    macros: [
+      { name: "蛋白质", value: 50, goal: 50, status: "剩余", progress: 0 },
+      { name: "碳水化合物", value: 30, goal: 30, status: "剩余", progress: 0 },
+      { name: "脂肪", value: 20, goal: 20, status: "剩余", progress: 0 },
+    ],
+    mealGroups: [],
+  })
+  const [refreshKey, setRefreshKey] = useState(0) // 用于触发刷新
+  const [dataLoading, setDataLoading] = useState(false) // 数据加载状态
+  const [isInitialLoad, setIsInitialLoad] = useState(() => {
+    // 从 sessionStorage 读取，如果已经加载过则不再显示骨架屏
+    if (typeof window !== 'undefined') {
+      return !sessionStorage.getItem('hasLoadedOnce')
+    }
+    return true
+  })
+  const [isRefreshing, setIsRefreshing] = useState(false) // 切换日期加载
+  const [dataCache, setDataCache] = useState<{[key: string]: any}>({}) // 简单缓存
+  const [currentWeekStart, setCurrentWeekStart] = useState(new Date()) // 当前显示的周起始日期
 
-  const currentData = dailyData[selectedDate as keyof typeof dailyData]
-  const targetCalories = currentData.remainingCalories
-  const dailyGoal = currentData.dailyGoal
+  const targetCalories = dailyData.remainingCalories
 
   const foodEquivalents = [
     "一个苹果🍎 + 一杯酸奶🥛",
@@ -299,6 +355,171 @@ export default function HomePage() {
     "一杯豆浆🥛 + 一个橙子🍊",
   ]
 
+  // 检查登录状态
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const session = await authService.getSession()
+        if (!session) {
+          router.push("/auth")
+          return
+        }
+        setLoading(false)
+      } catch (error) {
+        console.error("检查登录状态错误:", error)
+        router.push("/auth")
+      }
+    }
+    checkAuth()
+  }, [])
+
+  // 数据处理函数（提取出来复用）
+  const processData = useCallback((result: any) => {
+    const { profile, meals } = result
+    
+    // 计算总营养
+    const totalCalories = meals.reduce((sum: number, meal: any) => sum + (meal.calories || 0), 0)
+    const totalProtein = meals.reduce((sum: number, meal: any) => sum + parseFloat(meal.protein || 0), 0)
+    const totalCarbs = meals.reduce((sum: number, meal: any) => sum + parseFloat(meal.carbs || 0), 0)
+    const totalFats = meals.reduce((sum: number, meal: any) => sum + parseFloat(meal.fats || 0), 0)
+    
+    const calorieGoal = profile.daily_calorie_goal || 1800
+    const proteinGoal = profile.daily_protein_goal || 50
+    const carbsGoal = profile.daily_carbs_goal || 30
+    const fatsGoal = profile.daily_fats_goal || 20
+    
+    // 按餐型分组
+    const mealsByType: { [key: string]: any[] } = {}
+    meals.forEach((meal: any) => {
+      const type = meal.meal_type || "其他"
+      if (!mealsByType[type]) {
+        mealsByType[type] = []
+      }
+      // 格式化时间显示
+      const formatTime = (timeStr: string) => {
+        const [hours, minutes] = timeStr.split(':')
+        const hour = parseInt(hours)
+        const period = hour >= 12 ? '下午' : '上午'
+        const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour)
+        return `${period}${displayHour}:${minutes}`
+      }
+      
+      mealsByType[type].push({
+        id: meal.id,
+        name: meal.meal_name,
+        time: formatTime(meal.meal_time),
+        calories: meal.calories,
+        protein: parseFloat(meal.protein),
+        carbs: parseFloat(meal.carbs),
+        fats: parseFloat(meal.fats),
+        image: meal.image_url || "/placeholder.svg",
+      })
+    })
+    
+    const mealGroups = Object.keys(mealsByType).map(type => ({
+      mealType: type,
+      items: mealsByType[type],
+    }))
+    
+    // 计算剩余和进度
+    const remainingCalories = Math.max(0, calorieGoal - totalCalories)
+    const remainingProtein = proteinGoal - totalProtein
+    const remainingCarbs = carbsGoal - totalCarbs
+    const remainingFats = fatsGoal - totalFats
+    
+    setDailyGoal(calorieGoal)
+    setDailyData({
+      remainingCalories,
+      dailyGoal: calorieGoal,
+      macros: [
+        {
+          name: "蛋白质",
+          value: Math.round(Math.abs(remainingProtein)),
+          goal: proteinGoal,
+          status: remainingProtein >= 0 ? "剩余" : "超过",
+          progress: Math.min(100, (totalProtein / proteinGoal) * 100),
+        },
+        {
+          name: "碳水化合物",
+          value: Math.round(Math.abs(remainingCarbs)),
+          goal: carbsGoal,
+          status: remainingCarbs >= 0 ? "剩余" : "超过",
+          progress: Math.min(100, (totalCarbs / carbsGoal) * 100),
+        },
+        {
+          name: "脂肪",
+          value: Math.round(Math.abs(remainingFats)),
+          goal: fatsGoal,
+          status: remainingFats >= 0 ? "剩余" : "超过",
+          progress: Math.min(100, (totalFats / fatsGoal) * 100),
+        },
+      ],
+      mealGroups,
+    })
+  }, [])
+
+  // 页面重新可见时刷新数据
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // 页面变为可见时刷新
+        setRefreshKey(prev => prev + 1)
+      }
+    }
+    
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [])
+
+  // 加载指定日期的餐食数据
+  useEffect(() => {
+    const loadMeals = async () => {
+      if (loading) return
+      
+      const dateStr = format(selectedDate, "yyyy-MM-dd")
+      
+      // 检查缓存
+      if (dataCache[dateStr]) {
+        processData(dataCache[dateStr])
+        return
+      }
+      
+      // 只有首次加载才显示骨架屏，切换日期显示轻量加载
+      if (isInitialLoad) {
+        setDataLoading(true)
+      } else {
+        setIsRefreshing(true)
+      }
+      
+      try {
+        const result = await mealsService.getMealsByDate(dateStr)
+        
+        if (result.success) {
+          processData(result)
+          // 保存到缓存
+          setDataCache(prev => ({
+            ...prev,
+            [dateStr]: result
+          }))
+        }
+      } catch (error) {
+        console.error("加载餐食数据错误:", error)
+      } finally {
+        setDataLoading(false)
+        setIsRefreshing(false)
+        if (isInitialLoad) {
+          setIsInitialLoad(false)
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem('hasLoadedOnce', 'true')
+          }
+        }
+      }
+    }
+    
+    loadMeals()
+  }, [selectedDate, loading, router, refreshKey, processData, isInitialLoad])
+
+  // 卡路里数字动画
   useEffect(() => {
     let start = 0
     const duration = 1000
@@ -317,17 +538,56 @@ export default function HomePage() {
     return () => clearInterval(timer)
   }, [targetCalories, selectedDate])
 
-  const weekDays = [
-    { day: "一", date: 13, active: selectedDate === 13, hasLogs: true, isFuture: false },
-    { day: "二", date: 14, active: selectedDate === 14, hasLogs: true, isFuture: false },
-    { day: "三", date: 15, active: selectedDate === 15, hasLogs: true, isFuture: false },
-    { day: "四", date: 16, active: selectedDate === 16, hasLogs: true, isFuture: false },
-    { day: "五", date: 17, active: selectedDate === 17, hasLogs: true, isFuture: false },
-    { day: "六", date: 18, active: selectedDate === 18, hasLogs: true, isFuture: false },
-    { day: "日", date: 19, active: selectedDate === 19, hasLogs: false, isFuture: true },
-  ]
+  // 生成当前周的日期列表
+  const getWeekDays = () => {
+    const today = new Date()
+    const weekStart = startOfWeek(currentWeekStart, { weekStartsOn: 1 }) // 使用 currentWeekStart
+    const days = []
+    const dayNames = ["一", "二", "三", "四", "五", "六", "日"]
+    
+    for (let i = 0; i < 7; i++) {
+      const date = addDays(weekStart, i)
+      const isFuture = date > today
+      const isActive = format(date, "yyyy-MM-dd") === format(selectedDate, "yyyy-MM-dd")
+      
+      days.push({
+        day: dayNames[i],
+        date: date,
+        dateNum: date.getDate(),
+        active: isActive,
+        hasLogs: !isFuture, // 未来日期没有记录
+        isFuture: isFuture,
+      })
+    }
+    
+    return days
+  }
+  
+  // 切换到上一周
+  const goToPreviousWeek = () => {
+    setCurrentWeekStart(prev => addDays(prev, -7))
+  }
+  
+  // 切换到下一周
+  const goToNextWeek = () => {
+    const nextWeek = addDays(currentWeekStart, 7)
+    const today = new Date()
+    // 不能超过当前周
+    if (startOfWeek(nextWeek, { weekStartsOn: 1 }) <= startOfWeek(today, { weekStartsOn: 1 })) {
+      setCurrentWeekStart(nextWeek)
+    }
+  }
+  
+  // 检查是否是当前周
+  const isCurrentWeek = () => {
+    const today = new Date()
+    return format(startOfWeek(currentWeekStart, { weekStartsOn: 1 }), "yyyy-MM-dd") === 
+           format(startOfWeek(today, { weekStartsOn: 1 }), "yyyy-MM-dd")
+  }
 
-  const macros = currentData.macros.map((macro) => ({
+  const weekDays = getWeekDays()
+
+  const macros = dailyData.macros.map((macro) => ({
     ...macro,
     icon: macro.name === "蛋白质" ? Drumstick : macro.name === "碳水化合物" ? Wheat : Droplet,
     color: macro.name === "蛋白质" ? "protein" : macro.name === "碳水化合物" ? "carbs" : "fats",
@@ -335,7 +595,7 @@ export default function HomePage() {
     ringColor: macro.name === "蛋白质" ? "text-protein" : macro.name === "碳水化合物" ? "text-carbs" : "text-fats",
   }))
 
-  const mealGroups = currentData.mealGroups
+  const mealGroups = dailyData.mealGroups
 
   const showEmptyState = mealGroups.length === 0 || mealGroups.every((group) => group.items.length === 0)
 
@@ -343,13 +603,89 @@ export default function HomePage() {
     setCurrentEquivalent((prev) => (prev + 1) % foodEquivalents.length)
   }
 
+  // 删除餐食记录
+  const handleDeleteMeal = async (mealId: string, e: React.MouseEvent) => {
+    e.stopPropagation() // 阻止事件冒泡到卡片点击
+    
+    if (!confirm("确定要删除这条餐食记录吗？")) return
+
+    try {
+      const session = await authService.getSession()
+      if (!session?.access_token) {
+        router.push("/auth")
+        return
+      }
+
+      const response = await fetch(`/api/meals/${mealId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        console.error("删除API错误:", errorData)
+        throw new Error(errorData.error || "删除失败")
+      }
+
+      const result = await response.json()
+      if (result.success) {
+        // 删除成功后刷新数据
+        setRefreshKey(prev => prev + 1)
+        // 清空缓存
+        setDataCache({})
+      }
+    } catch (error) {
+      console.error("删除餐食错误:", error)
+      alert("删除失败：" + (error instanceof Error ? error.message : "请重试"))
+    }
+  }
+
   const consumedCalories = dailyGoal - targetCalories
   const consumedPercentage = (consumedCalories / dailyGoal) * 100
   const isLowCalories = targetCalories < dailyGoal * 0.2
   const ringStrokeDashoffset = 251.2 - (251.2 * consumedPercentage) / 100
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
+      {/* 渐变流动进度条 */}
+      {isRefreshing && (
+        <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-50/40 via-orange-50/40 to-amber-50/40 z-50 overflow-hidden backdrop-blur-sm">
+          <div 
+            className="h-full bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400 rounded-full shadow-lg shadow-amber-500/50"
+            style={{
+              width: '40%',
+              animation: 'shimmer 1.5s ease-in-out infinite',
+              filter: 'blur(0.5px)',
+            }}
+          />
+        </div>
+      )}
+      
+      {/* CSS 动画 */}
+      <style jsx>{`
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(400%);
+          }
+        }
+      `}</style>
+      
       {/* 限制最大宽度在移动设备尺寸，桌面上居中显示 */}
       <div className="max-w-md mx-auto px-4 py-6 space-y-6">
         {/* Header */}
@@ -360,15 +696,33 @@ export default function HomePage() {
           </div>
           <button
             onClick={() => setShowAchievements(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-card rounded-full shadow-sm hover:shadow-md transition-shadow active:scale-95 transition-transform"
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 bg-card rounded-full shadow-sm hover:shadow-md transition-all active:scale-95",
+              isRefreshing && "ring-2 ring-amber-400/50 shadow-amber-200"
+            )}
           >
-            <Flame className="w-5 h-5 text-amber-500" />
+            <Flame 
+              className={cn(
+                "w-5 h-5 text-amber-500 transition-all",
+                isRefreshing && "animate-pulse scale-110"
+              )} 
+            />
             <span className="font-semibold">1</span>
           </button>
         </div>
 
         {/* Week Selector */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {/* 上一周按钮 */}
+          <button
+            onClick={goToPreviousWeek}
+            className="flex-shrink-0 w-8 h-8 rounded-full hover:bg-muted/50 flex items-center justify-center transition-colors active:scale-95"
+            aria-label="上一周"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          
+          <div className="flex items-center justify-between gap-2 flex-1">
           {weekDays.map((item, index) => (
             <button
               key={index}
@@ -393,17 +747,46 @@ export default function HomePage() {
               >
                 {item.day}
               </div>
-              <span className="text-xs font-medium">{item.date}</span>
+              <span className="text-xs font-medium">{item.dateNum}</span>
               {item.hasLogs && !item.active && !item.isFuture && (
                 <div className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-success" />
               )}
             </button>
           ))}
+          </div>
+          
+          {/* 下一周按钮 */}
+          <button
+            onClick={goToNextWeek}
+            disabled={isCurrentWeek()}
+            className={cn(
+              "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors active:scale-95",
+              isCurrentWeek() 
+                ? "opacity-30 cursor-not-allowed" 
+                : "hover:bg-muted/50"
+            )}
+            aria-label="下一周"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Main Calorie Card */}
         <Card className="p-6 shadow-sm">
-          <div className="flex items-center justify-between">
+          {dataLoading ? (
+            <div className="animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 space-y-3">
+                  <div className="h-12 bg-muted rounded w-32"></div>
+                  <div className="h-4 bg-muted rounded w-24"></div>
+                  <div className="h-3 bg-muted rounded w-32"></div>
+                  <div className="h-3 bg-muted rounded w-40"></div>
+                </div>
+                <div className="w-32 h-32 bg-muted rounded-full"></div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
             <div className="flex-1">
               <div className="text-5xl font-bold mb-1 tabular-nums">{displayCalories}</div>
               <div className="text-sm text-muted-foreground mb-1">剩余卡路里</div>
@@ -448,11 +831,24 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+          )}
         </Card>
 
         {/* Macronutrient Cards */}
         <div className="grid grid-cols-3 gap-3">
-          {macros.map((macro, index) => {
+          {dataLoading ? (
+            // 骨架屏
+            [...Array(3)].map((_, index) => (
+              <Card key={index} className="p-4 shadow-sm">
+                <div className="animate-pulse space-y-3">
+                  <div className="h-8 bg-muted rounded w-16"></div>
+                  <div className="h-3 bg-muted rounded w-20"></div>
+                  <div className="w-16 h-16 bg-muted rounded-full mx-auto"></div>
+                </div>
+              </Card>
+            ))
+          ) : (
+            macros.map((macro, index) => {
             const Icon = macro.icon
 
             return (
@@ -500,12 +896,34 @@ export default function HomePage() {
                 </div>
               </Card>
             )
-          })}
+          })
+          )}
         </div>
 
         {/* Daily Food Log */}
         <div className="space-y-4">
-          {showEmptyState ? (
+          {dataLoading ? (
+            // 加载中骨架屏
+            [...Array(2)].map((_, index) => (
+              <div key={index} className="space-y-3">
+                <div className="h-5 bg-muted rounded w-16 animate-pulse"></div>
+                <Card className="p-4 shadow-sm">
+                  <div className="flex gap-4 animate-pulse">
+                    <div className="w-20 h-20 bg-muted rounded-lg"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-muted rounded w-32"></div>
+                      <div className="h-4 bg-muted rounded w-24"></div>
+                      <div className="flex gap-3">
+                        <div className="h-3 bg-muted rounded w-12"></div>
+                        <div className="h-3 bg-muted rounded w-12"></div>
+                        <div className="h-3 bg-muted rounded w-12"></div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ))
+          ) : showEmptyState ? (
             <Card className="p-8 shadow-sm">
               <div className="flex flex-col items-center text-center space-y-4">
                 <div className="w-24 h-24 rounded-full bg-muted/30 flex items-center justify-center">
@@ -536,7 +954,20 @@ export default function HomePage() {
               <div key={groupIndex} className="space-y-3">
                 <h2 className="text-base font-semibold px-1">{group.mealType}</h2>
                 {group.items.map((meal, index) => (
-                  <Card key={index} className="p-4 shadow-sm">
+                  <Card 
+                    key={index} 
+                    className="p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow relative group"
+                    onClick={() => router.push(`/meal/${meal.id}`)}
+                  >
+                    {/* 删除按钮 - 桌面端悬停显示，移动端始终显示 */}
+                    <button
+                      onClick={(e) => handleDeleteMeal(meal.id, e)}
+                      className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-destructive/10 hover:bg-destructive/20 active:bg-destructive/30 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                      aria-label="删除"
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </button>
+                    
                     <div className="flex gap-4">
                       <img
                         src={meal.image || "/placeholder.svg"}
@@ -544,7 +975,7 @@ export default function HomePage() {
                         className="w-20 h-20 rounded-lg object-cover"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-start justify-between gap-2 mb-2 pr-6">
                           <h3 className="font-semibold text-sm truncate">{meal.name}</h3>
                           <span className="text-xs text-muted-foreground whitespace-nowrap">{meal.time}</span>
                         </div>

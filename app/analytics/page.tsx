@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { TrendingUp, TrendingDown, Flame, Drumstick, Wheat, Droplet, Calendar, ChevronRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
@@ -21,41 +21,56 @@ import {
   Cell,
 } from "recharts"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { analyticsService } from "@/lib/supabase"
 
 export default function AnalyticsPage() {
   const [timeframe, setTimeframe] = useState<"本周" | "上周" | "本月">("本周")
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [weeklyData, setWeeklyData] = useState<any[]>([])
+  const [dailyCalorieGoal, setDailyCalorieGoal] = useState(1900)
+  const [stats, setStats] = useState({
+    avgCalories: 0,
+    caloriesTrend: 0,
+    prevCalories: 0,
+    avgProtein: 0,
+    proteinTrend: 0,
+    prevProtein: 0,
+    avgCarbs: 0,
+    carbsTrend: 0,
+    prevCarbs: 0,
+    avgFats: 0,
+    fatsTrend: 0,
+    prevFats: 0,
+  })
 
-  const weeklyData = [
-    { day: "周一", calories: 1800, protein: 85, carbs: 200, fats: 60 },
-    { day: "周二", calories: 2100, protein: 95, carbs: 220, fats: 70 },
-    { day: "周三", calories: 1950, protein: 90, carbs: 210, fats: 65 },
-    { day: "周四", calories: 2200, protein: 100, carbs: 240, fats: 75 },
-    { day: "周五", calories: 1850, protein: 88, carbs: 195, fats: 62 },
-    { day: "周六", calories: 2300, protein: 105, carbs: 250, fats: 80 },
-    { day: "周日", calories: 2000, protein: 92, carbs: 215, fats: 68 },
-  ]
+  // 获取营养分析数据
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await analyticsService.getAnalytics(timeframe)
+        if (response.success) {
+          setStats(response.stats)
+          setWeeklyData(response.dailyData)
+          setDailyCalorieGoal(response.dailyCalorieGoal)
+        }
+      } catch (err) {
+        console.error("获取营养分析数据失败:", err)
+        setError("加载失败，请稍后重试")
+      } finally {
+        setLoading(false)
+      }
+    }
 
-  const dailyCalorieGoal = 1900
+    fetchAnalytics()
+  }, [timeframe])
 
-  const stats = {
-    avgCalories: 2029,
-    caloriesTrend: 5.2,
-    prevCalories: 1928,
-    avgProtein: 93,
-    proteinTrend: -2.1,
-    prevProtein: 95,
-    avgCarbs: 219,
-    carbsTrend: 8.3,
-    prevCarbs: 202,
-    avgFats: 69,
-    fatsTrend: 3.5,
-    prevFats: 67,
-  }
-
-  const totalProtein = weeklyData.reduce((sum, day) => sum + day.protein, 0)
-  const totalCarbs = weeklyData.reduce((sum, day) => sum + day.carbs, 0)
-  const totalFats = weeklyData.reduce((sum, day) => sum + day.fats, 0)
-  const totalMacros = totalProtein + totalCarbs + totalFats
+  const totalProtein = weeklyData.length > 0 ? weeklyData.reduce((sum, day) => sum + day.protein, 0) : 0
+  const totalCarbs = weeklyData.length > 0 ? weeklyData.reduce((sum, day) => sum + day.carbs, 0) : 0
+  const totalFats = weeklyData.length > 0 ? weeklyData.reduce((sum, day) => sum + day.fats, 0) : 0
+  const totalMacros = totalProtein + totalCarbs + totalFats || 1
 
   const macroDistribution = [
     {
@@ -107,6 +122,35 @@ export default function AnalyticsPage() {
       )
     }
     return null
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center pb-24">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+        <BottomNav />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center pb-24">
+        <div className="text-center space-y-4 px-4">
+          <div className="text-destructive text-lg font-semibold">{error}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            重试
+          </button>
+        </div>
+        <BottomNav />
+      </div>
+    )
   }
 
   return (
@@ -220,7 +264,16 @@ export default function AnalyticsPage() {
           </Card>
         </div>
 
+        {/* Empty State */}
+        {weeklyData.length === 0 && (
+          <Card className="p-6 text-center">
+            <p className="text-muted-foreground">暂无{timeframe}的饮食记录</p>
+            <p className="text-sm text-muted-foreground mt-2">开始记录您的餐食，查看营养分析数据</p>
+          </Card>
+        )}
+
         {/* Calorie Trend Chart */}
+        {weeklyData.length > 0 && (
         <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-amber-50/30">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-semibold text-base">卡路里趋势</h3>
@@ -304,8 +357,10 @@ export default function AnalyticsPage() {
             </AreaChart>
           </ResponsiveContainer>
         </Card>
+        )}
 
         {/* Macronutrient Distribution */}
+        {weeklyData.length > 0 && (
         <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-orange-50/20">
           <h3 className="font-semibold mb-4 text-base">营养素分布</h3>
           <ResponsiveContainer width="100%" height={200}>
@@ -421,8 +476,10 @@ export default function AnalyticsPage() {
             </div>
           </div>
         </Card>
+        )}
 
         {/* Insights */}
+        {weeklyData.length > 0 && (
         <Card className="p-4 shadow-md border-0">
           <h3 className="font-semibold mb-3 text-base">本周洞察</h3>
           <div className="space-y-2.5">
@@ -454,6 +511,7 @@ export default function AnalyticsPage() {
             </button>
           </div>
         </Card>
+        )}
       </div>
 
       <BottomNav />

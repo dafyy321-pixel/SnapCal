@@ -1,21 +1,57 @@
 "use client"
 
-import { Camera, ChevronRight, Settings, Bell, Shield, HelpCircle, Share2, Award } from "lucide-react"
+import { Camera, ChevronRight, Settings, Bell, Shield, HelpCircle, Share2, Award, LogOut } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useRouter } from "next/navigation"
+import { authService } from "@/lib/supabase"
+import { useState, useEffect } from "react"
 
 export default function ProfilePage() {
   const router = useRouter()
-
-  // 用户数据
-  const userData = {
-    name: "哈哈62d67b8...",
-    streak: 7,
-    totalLogs: 142,
-    achievements: 5,
+  const [userData, setUserData] = useState({
+    name: "加载中...",
+    phone: "",
+    streak: 0,
+    totalLogs: 0,
+    achievements: 0,
     avgCalories: 1650,
+  })
+
+  // 加载用户信息
+  useEffect(() => {
+    const loadUserData = async () => {
+      try {
+        const user = await authService.getCurrentUser()
+        if (user) {
+          const storedUser = localStorage.getItem("user")
+          if (storedUser) {
+            const userInfo = JSON.parse(storedUser)
+            setUserData(prev => ({
+              ...prev,
+              name: userInfo.username || user.user_metadata?.username || "用户",
+              phone: userInfo.phone || user.user_metadata?.phone || "",
+            }))
+          }
+        }
+      } catch (error) {
+        console.error("加载用户信息错误:", error)
+      }
+    }
+    loadUserData()
+  }, [])
+
+  // 退出登录
+  const handleLogout = async () => {
+    try {
+      await authService.signOut()
+      localStorage.removeItem("user")
+      router.push("/auth")
+    } catch (error) {
+      console.error("退出登录错误:", error)
+      alert("退出登录失败")
+    }
   }
 
   // 菜单项配置
@@ -77,6 +113,18 @@ export default function ProfilePage() {
           route: "/help",
           iconColor: "text-cyan-500",
           iconBg: "bg-cyan-50",
+        },
+      ],
+    },
+    {
+      items: [
+        {
+          icon: LogOut,
+          label: "退出登录",
+          description: "退出当前账号",
+          action: "logout", // 特殊标记，表示这是退出操作
+          iconColor: "text-red-500",
+          iconBg: "bg-red-50",
         },
       ],
     },
@@ -148,7 +196,13 @@ export default function ProfilePage() {
                   return (
                     <button
                       key={itemIndex}
-                      onClick={() => router.push(item.route)}
+                      onClick={() => {
+                        if (item.action === "logout") {
+                          handleLogout()
+                        } else if (item.route) {
+                          router.push(item.route)
+                        }
+                      }}
                       className="w-full p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors"
                     >
                       <div className={`w-11 h-11 rounded-xl ${item.iconBg} flex items-center justify-center flex-shrink-0`}>
