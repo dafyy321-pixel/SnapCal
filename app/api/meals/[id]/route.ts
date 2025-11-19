@@ -1,227 +1,144 @@
 import { NextRequest, NextResponse } from "next/server"
+import { withAuth } from "@/lib/auth-middleware"
+import { withValidation, withMultiValidation } from "@/lib/validation-middleware"
+import { errorResponse, successResponse, NotFoundError } from "@/lib/error-handler"
 import { createClient } from "@supabase/supabase-js"
+import {
+  updateMealSchema,
+  routeParamsSchema
+} from "@/lib/validation-schemas"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+// 使用 Service Role Key，配合 withAuth 手动控制 user_id，避免 RLS 拦截
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 // 获取单条餐食详情
-export async function GET(
+async function getMealHandler(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   try {
-    const params = await context.params
-    const token = request.headers.get("authorization")?.replace("Bearer ", "")
-
-    if (!token) {
-      return NextResponse.json(
-        { error: "未授权" },
-        { status: 401 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "用户未登录" },
-        { status: 401 }
-      )
-    }
+    const user = request.user
+    const { id } = request.validatedData.params
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     const { data: meal, error } = await supabase
       .from("user_meals")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single()
 
     if (error) {
-      console.error("获取餐食详情错误:", error)
-      return NextResponse.json(
-        { error: "查询失败" },
-        { status: 500 }
-      )
+      if (error.code === 'PGRST116') {
+        return successResponse({ error: "餐食不存在" }, 404)
+      }
+      throw error
     }
 
-    if (!meal) {
-      return NextResponse.json(
-        { error: "餐食不存在" },
-        { status: 404 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      meal,
-    })
+    return successResponse({ meal })
   } catch (error) {
-    console.error("获取餐食详情错误:", error)
-    return NextResponse.json(
-      { error: "服务器错误" },
-      { status: 500 }
-    )
+    return errorResponse(error)
   }
 }
 
 // 删除餐食记录
-export async function DELETE(
+async function deleteMealHandler(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   try {
-    const params = await context.params
-    const token = request.headers.get("authorization")?.replace("Bearer ", "")
-
-    if (!token) {
-      return NextResponse.json(
-        { error: "未授权" },
-        { status: 401 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "用户未登录" },
-        { status: 401 }
-      )
-    }
+    const user = request.user
+    const { id } = request.validatedData.params
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     // 先检查是否存在且属于当前用户
     const { data: existing } = await supabase
       .from("user_meals")
       .select("id")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single()
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "餐食不存在或无权限删除" },
-        { status: 404 }
-      )
+      // 使用统一的错误响应格式，返回 404 和明确的错误信息
+      throw new NotFoundError("餐食不存在或无权限删除")
     }
 
     const { error } = await supabase
       .from("user_meals")
       .delete()
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
 
     if (error) {
-      console.error("删除餐食记录错误:", error)
-      return NextResponse.json(
-        { error: "删除失败" },
-        { status: 500 }
-      )
+      throw error
     }
 
-    return NextResponse.json({
-      success: true,
-      message: "删除成功",
-    })
+    return successResponse({ message: "删除成功" })
   } catch (error) {
-    console.error("删除餐食记录错误:", error)
-    return NextResponse.json(
-      { error: "服务器错误" },
-      { status: 500 }
-    )
+    return errorResponse(error)
   }
 }
 
 // 更新餐食记录（编辑功能）
-export async function PATCH(
+async function updateMealHandler(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
-) {
+): Promise<NextResponse> {
   try {
-    const params = await context.params
-    const token = request.headers.get("authorization")?.replace("Bearer ", "")
+    const user = request.user
+    const { id } = request.validatedData.params
+    const updateData = request.validatedData.body
 
-    if (!token) {
-      return NextResponse.json(
-        { error: "未授权" },
-        { status: 401 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      }
-    })
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "用户未登录" },
-        { status: 401 }
-      )
-    }
-
-    const body = await request.json()
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     // 先检查是否存在且属于当前用户
     const { data: existing } = await supabase
       .from("user_meals")
       .select("id")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single()
 
     if (!existing) {
-      return NextResponse.json(
-        { error: "餐食不存在或无权限编辑" },
-        { status: 404 }
-      )
+      return successResponse({ error: "餐食不存在或无权限编辑" }, 404)
     }
 
     const { data, error } = await supabase
       .from("user_meals")
-      .update(body)
-      .eq("id", params.id)
+      .update(updateData)
+      .eq("id", id)
       .eq("user_id", user.id)
       .select()
       .single()
 
     if (error) {
-      console.error("更新餐食记录错误:", error)
-      return NextResponse.json(
-        { error: "更新失败" },
-        { status: 500 }
-      )
+      throw error
     }
 
-    return NextResponse.json({
-      success: true,
-      meal: data,
-    })
+    return successResponse({ meal: data })
   } catch (error) {
-    console.error("更新餐食记录错误:", error)
-    return NextResponse.json(
-      { error: "服务器错误" },
-      { status: 500 }
-    )
+    return errorResponse(error)
   }
 }
+
+// 🔒 使用认证和验证中间件包装所有API处理函数
+export const GET = withAuth(
+  withMultiValidation([
+    { schema: routeParamsSchema, source: 'params', key: 'params' }
+  ])(getMealHandler) as any
+) as any
+
+export const DELETE = withAuth(
+  withMultiValidation([
+    { schema: routeParamsSchema, source: 'params', key: 'params' }
+  ])(deleteMealHandler) as any
+) as any
+
+export const PATCH = withAuth(
+  withMultiValidation([
+    { schema: routeParamsSchema, source: 'params', key: 'params' },
+    { schema: updateMealSchema, source: 'body', key: 'body' }
+  ])(updateMealHandler) as any
+) as any

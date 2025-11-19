@@ -8,6 +8,20 @@ import { useRouter } from "next/navigation"
 import { authService } from "@/lib/supabase"
 import { useState, useEffect } from "react"
 
+type MenuItem = {
+  icon: any
+  label: string
+  description: string
+  route?: string
+  action?: string
+  iconColor: string
+  iconBg: string
+}
+
+type MenuSection = {
+  items: MenuItem[]
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const [userData, setUserData] = useState({
@@ -55,14 +69,14 @@ export default function ProfilePage() {
   }
 
   // 菜单项配置
-  const menuSections = [
+  const menuSections: MenuSection[] = [
     {
       items: [
         {
           icon: Award,
           label: "我的成就",
           description: "查看我的徽章与奖励",
-          route: "/achievements",
+          route: "/profile/achievements",
           iconColor: "text-amber-500",
           iconBg: "bg-amber-50",
         },
@@ -70,9 +84,17 @@ export default function ProfilePage() {
           icon: Share2,
           label: "分享给朋友",
           description: "邀请好友一起记录",
-          route: "/share",
+          route: "/profile/share",
           iconColor: "text-emerald-500",
           iconBg: "bg-emerald-50",
+        },
+        {
+          icon: Camera,
+          label: "编辑资料",
+          description: "修改个人信息和头像",
+          route: "/profile/edit",
+          iconColor: "text-blue-500",
+          iconBg: "bg-blue-50",
         },
       ],
     },
@@ -82,7 +104,7 @@ export default function ProfilePage() {
           icon: Bell,
           label: "通知设置",
           description: "管理提醒偏好",
-          route: "/notifications",
+          route: "/profile/notifications",
           iconColor: "text-blue-500",
           iconBg: "bg-blue-50",
         },
@@ -90,17 +112,25 @@ export default function ProfilePage() {
           icon: Shield,
           label: "隐私与安全",
           description: "账号与数据设置",
-          route: "/privacy",
+          route: "/profile/privacy",
           iconColor: "text-purple-500",
           iconBg: "bg-purple-50",
         },
         {
           icon: Settings,
-          label: "应用设置",
-          description: "个性化你的体验",
-          route: "/settings",
-          iconColor: "text-gray-500",
-          iconBg: "bg-gray-50",
+          label: "目标设置",
+          description: "设置营养和体重目标",
+          route: "/profile/goals",
+          iconColor: "text-green-500",
+          iconBg: "bg-green-50",
+        },
+        {
+          icon: Camera,
+          label: "数据导出",
+          description: "导出我的健康数据",
+          route: "/profile/export",
+          iconColor: "text-orange-500",
+          iconBg: "bg-orange-50",
         },
       ],
     },
@@ -110,9 +140,17 @@ export default function ProfilePage() {
           icon: HelpCircle,
           label: "帮助中心",
           description: "常见问题与支持",
-          route: "/help",
+          route: "/profile/help",
           iconColor: "text-cyan-500",
           iconBg: "bg-cyan-50",
+        },
+        {
+          icon: Camera,
+          label: "关于我们",
+          description: "了解 SnapCal",
+          route: "/profile/about",
+          iconColor: "text-indigo-500",
+          iconBg: "bg-indigo-50",
         },
       ],
     },

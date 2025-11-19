@@ -375,13 +375,14 @@ export default function HomePage() {
 
   // 数据处理函数（提取出来复用）
   const processData = useCallback((result: any) => {
-    const { profile, meals } = result
+    const { profile, meals } = result || {}
+    const safeMeals = Array.isArray(meals) ? meals : []
     
     // 计算总营养
-    const totalCalories = meals.reduce((sum: number, meal: any) => sum + (meal.calories || 0), 0)
-    const totalProtein = meals.reduce((sum: number, meal: any) => sum + parseFloat(meal.protein || 0), 0)
-    const totalCarbs = meals.reduce((sum: number, meal: any) => sum + parseFloat(meal.carbs || 0), 0)
-    const totalFats = meals.reduce((sum: number, meal: any) => sum + parseFloat(meal.fats || 0), 0)
+    const totalCalories = safeMeals.reduce((sum: number, meal: any) => sum + (meal.calories || 0), 0)
+    const totalProtein = safeMeals.reduce((sum: number, meal: any) => sum + parseFloat(meal.protein || 0), 0)
+    const totalCarbs = safeMeals.reduce((sum: number, meal: any) => sum + parseFloat(meal.carbs || 0), 0)
+    const totalFats = safeMeals.reduce((sum: number, meal: any) => sum + parseFloat(meal.fats || 0), 0)
     
     const calorieGoal = profile.daily_calorie_goal || 1800
     const proteinGoal = profile.daily_protein_goal || 50
@@ -390,7 +391,7 @@ export default function HomePage() {
     
     // 按餐型分组
     const mealsByType: { [key: string]: any[] } = {}
-    meals.forEach((meal: any) => {
+    safeMeals.forEach((meal: any) => {
       const type = meal.meal_type || "其他"
       if (!mealsByType[type]) {
         mealsByType[type] = []
@@ -494,14 +495,13 @@ export default function HomePage() {
       try {
         const result = await mealsService.getMealsByDate(dateStr)
         
-        if (result.success) {
-          processData(result)
-          // 保存到缓存
-          setDataCache(prev => ({
-            ...prev,
-            [dateStr]: result
-          }))
-        }
+        // mealsService 已经保证抛出错误时不会返回，这里直接处理结果即可
+        processData(result)
+        // 保存到缓存
+        setDataCache(prev => ({
+          ...prev,
+          [dateStr]: result
+        }))
       } catch (error) {
         console.error("加载餐食数据错误:", error)
       } finally {
@@ -624,9 +624,24 @@ export default function HomePage() {
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
-        console.error("删除API错误:", errorData)
-        throw new Error(errorData.error || "删除失败")
+        // 如果后端返回 404，视为已经被删除，前端直接刷新列表，不再弹错误
+        if (response.status === 404) {
+          console.warn("删除API：记录不存在或已删除，视为成功")
+          setRefreshKey(prev => prev + 1)
+          setDataCache({})
+          return
+        }
+
+        let errorMessage = "删除失败"
+        try {
+          const errorData = await response.json()
+          console.error("删除API错误:", errorData)
+          // 后端统一错误格式：{ success: false, error: { message, code, ... } }
+          errorMessage = errorData?.error?.message || errorData?.data?.error || errorMessage
+        } catch (e) {
+          console.error("解析删除API错误响应失败:", e)
+        }
+        throw new Error(errorMessage)
       }
 
       const result = await response.json()
@@ -712,7 +727,7 @@ export default function HomePage() {
         </div>
 
         {/* Week Selector */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-3">
           {/* 上一周按钮 */}
           <button
             onClick={goToPreviousWeek}
@@ -722,7 +737,8 @@ export default function HomePage() {
             <ChevronLeft className="w-5 h-5" />
           </button>
           
-          <div className="flex items-center justify-between gap-2 flex-1">
+          {/* 中间日期列表，宽度根据内容自适应，整体与箭头一起居中 */}
+          <div className="flex items-center justify-between gap-2">
           {weekDays.map((item, index) => (
             <button
               key={index}
@@ -926,27 +942,16 @@ export default function HomePage() {
           ) : showEmptyState ? (
             <Card className="p-8 shadow-sm">
               <div className="flex flex-col items-center text-center space-y-4">
-                <div className="w-24 h-24 rounded-full bg-muted/30 flex items-center justify-center">
-                  <svg
-                    className="w-12 h-12 text-muted-foreground/40"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                    <path d="M12 14v7" />
-                    <path d="M8 18h8" />
-                  </svg>
+                <div className="w-32 h-32 rounded-full gradient-border flex items-center justify-center">
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-50/30 to-orange-50/30 flex items-center justify-center">
+                    <div className="text-4xl">🍽️</div>
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">今天还未记录饮食哦</p>
-                  <p className="text-sm text-muted-foreground">点击下方的相机开始吧！</p>
+                  <p className="text-2xl font-semibold text-foreground">开始记录饮食</p>
+                  <p className="text-sm text-muted-foreground">今天还未记录餐食，点击下方相机开始您的健康饮食之旅！</p>
                 </div>
-                <ArrowDown className="w-5 h-5 text-muted-foreground/40 animate-bounce" />
+                <ArrowDown className="w-5 h-5 text-muted-foreground/60 animate-bounce" />
               </div>
             </Card>
           ) : (

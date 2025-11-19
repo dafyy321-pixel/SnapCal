@@ -62,7 +62,23 @@ export const mealsService = {
       throw new Error("获取餐食记录失败")
     }
 
-    return await response.json()
+    const json = await response.json()
+    // 后端使用统一 ApiResponse 格式：{ success, data: { profile, meals, ... }, error, ... }
+    if (!json.success) {
+      throw new Error(json.error?.message || "获取餐食记录失败")
+    }
+
+    // 始终返回 { profile, meals }，方便前端使用
+    const data = json.data || {}
+    return {
+      profile: data.profile || {
+        daily_calorie_goal: 1800,
+        daily_protein_goal: 50,
+        daily_carbs_goal: 30,
+        daily_fats_goal: 20,
+      },
+      meals: data.meals || [],
+    }
   },
 
   // 添加餐食记录

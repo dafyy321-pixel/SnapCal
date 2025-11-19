@@ -6,7 +6,10 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "type-check": "tsc --noEmit",
+    "build:check": "npm run type-check && npm run build",
+    "env:check": "node -e \"require('./lib/env-config.ts').validateEnv()\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -57,6 +60,7 @@
     "react-resizable-panels": "^2.1.7",
     "recharts": "latest",
     "sonner": "^1.7.4",
+    "swr": "^2.3.6",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",

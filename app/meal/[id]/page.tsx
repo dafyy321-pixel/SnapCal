@@ -38,7 +38,8 @@ export default function MealDetailPage() {
 
         const result = await response.json()
         if (result.success) {
-          setMeal(result.meal)
+          // 后端使用统一 ApiResponse：数据在 result.data 下
+          setMeal(result.data?.meal || result.meal || null)
         }
       } catch (error) {
         console.error("加载餐食详情错误:", error)

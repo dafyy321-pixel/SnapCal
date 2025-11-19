@@ -6,6 +6,21 @@ import { useState, useRef } from "react"
 import { Camera, X, ImageIcon, Sparkles, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
+import { authService } from "@/lib/supabase"
+
+// 将 data URL 转为 Blob，避免对 data: 协议发起网络请求（受 CSP 限制）
+function dataURLToBlob(dataUrl: string): Blob {
+  const [header, base64] = dataUrl.split(',')
+  const match = header.match(/data:(.*?);base64/)
+  const mime = match ? match[1] : 'image/jpeg'
+  const binary = atob(base64)
+  const len = binary.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return new Blob([bytes], { type: mime })
+}
 
 export default function ScanPage() {
   const router = useRouter()
@@ -39,36 +54,57 @@ export default function ScanPage() {
     setError(null)
 
     try {
-      // Convert data URL to blob
-      const response = await fetch(image)
-      const blob = await response.blob()
+      // 确保用户已登录，并获取 access_token 作为认证头
+      const session = await authService.getSession()
+      if (!session?.access_token) {
+        setIsAnalyzing(false)
+        setError("请先登录后再使用扫描功能")
+        router.push("/auth")
+        return
+      }
+
+      // 直接将 data URL 转成 Blob，避免对 data: 协议发起 fetch（会被 CSP 拦截）
+      const blob = dataURLToBlob(image)
 
       // Create FormData and upload
       const formData = new FormData()
       formData.append("image", blob, "photo.jpg")
 
-      // Call analyze API
+      // Call analyze API，携带 Bearer Token，满足 withAuth 中间件的认证要求
       const analyzeResponse = await fetch("/api/analyze", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: formData,
       })
 
       if (!analyzeResponse.ok) {
-        throw new Error("分析失败")
+        const errText = await analyzeResponse.text().catch(() => "")
+        console.error("[Scan] /api/analyze failed:", analyzeResponse.status, errText)
+        if (analyzeResponse.status === 401) {
+          throw new Error("登录已失效，请重新登录后再试")
+        }
+        throw new Error("分析失败，请稍后重试")
       }
 
       const result = await analyzeResponse.json()
       if (result.success) {
         setAnalysisResult(result.data)
-        // Store result in session for analysis page
-        sessionStorage.setItem("analysisResult", JSON.stringify(result.data))
-        router.push("/analysis")
+        // 使用分析ID跳转到分析页面（注意：successResponse 会把 payload 放在 data 里）
+        const analysisId = result.data?.analysisId || result.data?.id
+        if (analysisId) {
+          router.push(`/analysis?id=${analysisId}`)
+        } else {
+          console.error('[Scan] Missing analysisId in /api/analyze response:', result)
+          setError('分析结果返回异常，请重试')
+        }
       } else {
         setError(result.error || "分析失败，请重试")
       }
     } catch (err) {
       console.error("[Scan] Analysis error:", err)
-      setError("分析失败，请检查网络连接")
+      setError(err instanceof Error ? err.message : "分析失败，请检查网络连接")
     } finally {
       setIsAnalyzing(false)
     }

@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { PerformanceMonitor } from "@/components/performance-monitor"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -38,6 +39,7 @@ export default function RootLayout({
           {children}
         </div>
         <Analytics />
+        <PerformanceMonitor />
       </body>
     </html>
   )

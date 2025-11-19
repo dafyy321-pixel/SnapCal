@@ -340,12 +340,22 @@ export default function AnalyticsPage() {
                 stroke="#1f2937"
                 strokeWidth={3}
                 fill="url(#calorieGradient)"
-                dot={{ 
-                  fill: "#ffffff", 
-                  strokeWidth: 2.5, 
-                  r: 5, 
-                  stroke: "#1f2937",
-                  filter: "url(#shadow)"
+                dot={(props: any) => {
+                  const { cx, cy, payload } = props
+                  const key = `dot-${cx}-${cy}`
+                  if (payload.calories === 0) return <circle key={key} cx={cx} cy={cy} r={0} />
+                  return (
+                    <circle
+                      key={key}
+                      cx={cx}
+                      cy={cy}
+                      r={5}
+                      fill="#ffffff"
+                      stroke="#1f2937"
+                      strokeWidth={2.5}
+                      filter="url(#shadow)"
+                    />
+                  )
                 }}
                 activeDot={{ 
                   r: 7, 
@@ -353,6 +363,7 @@ export default function AnalyticsPage() {
                   fill: "#ffffff",
                   stroke: "#1f2937"
                 }}
+                connectNulls
               />
             </AreaChart>
           </ResponsiveContainer>

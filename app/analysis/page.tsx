@@ -1,35 +1,70 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { ArrowLeft, Flame, Drumstick, Wheat, Droplet, Check, Plus, Minus, TrendingUp, TrendingDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { mealsService } from "@/lib/supabase"
+import { mealsService, authService } from "@/lib/supabase"
 import { format } from "date-fns"
 
-export default function AnalysisPage() {
+function AnalysisPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const analysisId = searchParams.get('id')
+
   const [servings, setServings] = useState(1)
   const [foodData, setFoodData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Load analysis result from sessionStorage
+  // Load analysis result from database using ID
   useEffect(() => {
-    const stored = sessionStorage.getItem("analysisResult")
-    if (stored) {
+    const loadAnalysisResult = async () => {
+      if (!analysisId) {
+        setError('缺少分析结果ID')
+        setLoading(false)
+        return
+      }
+
       try {
-        const data = JSON.parse(stored)
-        setFoodData(data)
-        sessionStorage.removeItem("analysisResult") // Clear after use
+        setLoading(true)
+        const session = await authService.getSession()
+        if (!session?.access_token) {
+          setError('请先登录后再查看分析结果')
+          setLoading(false)
+          router.push('/auth')
+          return
+        }
+
+        const response = await fetch(`/api/analysis/${analysisId}` , {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error('获取分析结果失败')
+        }
+
+        const result = await response.json()
+        if (result.success) {
+          setFoodData(result.data)
+        } else {
+          setError(result.error || '获取分析结果失败')
+        }
       } catch (error) {
-        console.error("Failed to parse analysis result:", error)
+        console.error('Failed to load analysis result:', error)
+        setError('加载分析结果失败，请重试')
+      } finally {
+        setLoading(false)
       }
     }
-    setLoading(false)
-  }, [])
+
+    loadAnalysisResult()
+  }, [analysisId])
 
   // Fallback mock data if none available
   const defaultFoodData = {
@@ -59,19 +94,19 @@ export default function AnalysisPage() {
       const mealTime = format(now, "HH:mm:ss")
       const mealDate = format(now, "yyyy-MM-dd")
       
-      // 根据时间自动判断餐型
+      // 根据时间自动判断餐型（后端使用英文枚举：breakfast/lunch/dinner/snack）
       const getMealType = () => {
         const hour = now.getHours()
-        if (hour >= 6 && hour < 10) return "早餐"
-        if (hour >= 10 && hour < 14) return "午餐"
-        if (hour >= 14 && hour < 18) return "下午茶"
-        if (hour >= 18 && hour < 22) return "晚餐"
-        return "宵夜"
+        if (hour >= 6 && hour < 10) return "breakfast"   // 早餐
+        if (hour >= 10 && hour < 14) return "lunch"      // 午餐
+        if (hour >= 14 && hour < 18) return "snack"      // 下午茶/加餐
+        if (hour >= 18 && hour < 22) return "dinner"     // 晚餐
+        return "snack"                                   // 宵夜按加餐处理
       }
       
       // 保存到数据库（包括完整营养信息）
       const nutritionData = displayData.nutrition || {}
-      await mealsService.addMeal({
+      const meal = await mealsService.addMeal({
         meal_name: displayData.name,
         meal_type: getMealType(),
         meal_date: mealDate,
@@ -98,6 +133,30 @@ export default function AnalysisPage() {
         ingredients: displayData.ingredients || undefined,
         confidence: displayData.confidence || undefined,
       })
+
+      // 关联分析结果到餐食记录
+      if (analysisId && meal?.id) {
+        try {
+          const session = await authService.getSession()
+          if (!session?.access_token) {
+            throw new Error('未登录')
+          }
+
+          await fetch(`/api/analysis/${analysisId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              meal_id: meal.id,
+            }),
+          })
+        } catch (error) {
+          console.error('Failed to link analysis to meal:', error)
+          // 不影响主要功能，只记录错误
+        }
+      }
       
       // 成功后跳转到首页
       router.push("/")
@@ -135,6 +194,30 @@ export default function AnalysisPage() {
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
           <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+            <span className="text-2xl">❌</span>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold mb-2">加载失败</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+          </div>
+          <div className="space-y-2">
+            <Button onClick={() => window.location.reload()} className="w-full">
+              重新加载
+            </Button>
+            <Button variant="outline" onClick={() => router.push('/scan')} className="w-full">
+              重新扫描
+            </Button>
+          </div>
         </div>
       </div>
     )
@@ -344,5 +427,20 @@ export default function AnalysisPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function AnalysisPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    }>
+      <AnalysisPageContent />
+    </Suspense>
   )
 }

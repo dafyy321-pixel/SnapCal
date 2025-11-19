@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir D:new_cursorSnapCalcode)",
+      "Bash(Get-Content:*)",
+      "Bash(Out-String:*)",
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run dev:*)",
+      "Bash(taskkill:*)",
+      "Bash(nul:*)",
+      "Bash(nvm:*)",
+      "Bash(node:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(npx chrome-devtools-mcp@latest:*)",
+      "Bash(claude mcp list:*)",
+      "Bash(claude --debug mcp:*)",
+      "Bash(where:*)",
+      "Bash(npx --yes claude-code@latest mcp list:*)",
+      "Bash(npm install:*)",
+      "mcp__memory__read_graph",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__apply_migration",
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "Bash(timeout:*)",
+      "Bash(Stop-Process:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(rm:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}
