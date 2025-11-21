@@ -3,6 +3,7 @@ import { analyzeFoodWithDoubao } from '@/lib/doubao-service'
 import { withAuth } from '@/lib/auth-middleware'
 import { withFileValidation } from '@/lib/validation-middleware'
 import { successResponse, errorResponse, AppError } from '@/lib/error-handler'
+import { createSuccessResponse, createErrorResponse, ApiErrorCodes } from '@/lib/api-response'
 import { analysisService } from '@/lib/analysis-service'
 import { createClient } from '@supabase/supabase-js'
 import { validateFile, generateSafeFilename, DEFAULT_IMAGE_VALIDATION } from '@/lib/file-security'
@@ -152,7 +153,7 @@ async function analyzeFoodHandler(request: ExtendedNextRequest): Promise<NextRes
         const existingAnalysis = await findExistingAnalysis(user.id, base64)
         if (existingAnalysis) {
           console.log('[Analyze] 找到现有分析结果，复用数据')
-          return successResponse({
+          return NextResponse.json(createSuccessResponse({
             analysisId: existingAnalysis.id,
             data: {
               ...existingAnalysis.food_data,
@@ -160,7 +161,7 @@ async function analyzeFoodHandler(request: ExtendedNextRequest): Promise<NextRes
               timestamp: existingAnalysis.created_at,
               is_cached: true,
             },
-          })
+          }))
         }
       }
 
@@ -225,7 +226,7 @@ async function analyzeFoodHandler(request: ExtendedNextRequest): Promise<NextRes
 
     console.log(`[Analyze] 分析结果已保存，ID: ${analysisResult.id}`)
 
-    return successResponse({
+    return NextResponse.json(createSuccessResponse({
       analysisId: analysisResult.id,
       data: {
         ...analyzedFood,
@@ -234,7 +235,7 @@ async function analyzeFoodHandler(request: ExtendedNextRequest): Promise<NextRes
         analysis_duration: analysisDuration,
       },
       file_warnings: fileValidation.warnings,
-    })
+    }))
   } catch (error) {
     return errorResponse(error)
   }

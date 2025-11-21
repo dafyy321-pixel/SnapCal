@@ -8,6 +8,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { mealsService, authService } from "@/lib/supabase"
 import { format } from "date-fns"
+import { FoodAnalysisData, NutritionData } from "@/types"
+import { transformAnalysisData, validateAnalysisData } from "@/lib/data-transform"
+import Image from "next/image"
 
 function AnalysisPageContent() {
   const router = useRouter()
@@ -15,7 +18,7 @@ function AnalysisPageContent() {
   const analysisId = searchParams.get('id')
 
   const [servings, setServings] = useState(1)
-  const [foodData, setFoodData] = useState<any>(null)
+  const [foodData, setFoodData] = useState<FoodAnalysisData | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,10 +53,12 @@ function AnalysisPageContent() {
         }
 
         const result = await response.json()
-        if (result.success) {
-          setFoodData(result.data)
+        if (result.success && result.data) {
+          // 使用数据转换函数处理API返回的数据
+          const transformedData = transformAnalysisData(result.data)
+          setFoodData(validateAnalysisData(transformedData))
         } else {
-          setError(result.error || '获取分析结果失败')
+          setError(result.error?.message || '获取分析结果失败')
         }
       } catch (error) {
         console.error('Failed to load analysis result:', error)
@@ -66,8 +71,8 @@ function AnalysisPageContent() {
     loadAnalysisResult()
   }, [analysisId])
 
-  // Fallback mock data if none available
-  const defaultFoodData = {
+  // Fallback mock data if none available - 使用validateAnalysisData确保类型正确
+  const defaultFoodData = validateAnalysisData({
     name: "未识别的食物",
     image: "https://via.placeholder.com/400x300?text=Food",
     confidence: 45,
@@ -81,7 +86,7 @@ function AnalysisPageContent() {
       sugar: 3,
       sodium: 200,
     },
-  }
+  })
 
   const displayData = foodData || defaultFoodData
 
@@ -175,12 +180,22 @@ function AnalysisPageContent() {
     return Math.round(base * servings * 10) / 10
   }
 
-  // 生成与“本周营养总览”一致的数据结构（按克数占比）
+  // 生成与"本周营养总览"一致的数据结构（按克数占比）
   const macroDistribution = (() => {
     const protein = calculateValue((displayData?.protein ?? 0))
     const carbs = calculateValue((displayData?.carbs ?? 0))
     const fats = calculateValue((displayData?.fats ?? 0))
-    const total = Math.max(protein + carbs + fats, 1)
+
+    // 如果没有营养数据（都是0），显示均匀分布33.33%
+    if (protein === 0 && carbs === 0 && fats === 0) {
+      return [
+        { name: "蛋白质", value: 0, color: "#e74c3c", percentage: "33.3" },
+        { name: "碳水化合物", value: 0, color: "#f39c12", percentage: "33.3" },
+        { name: "脂肪", value: 0, color: "#3498db", percentage: "33.4" }, // 33.4 确保总和为100%
+      ]
+    }
+
+    const total = protein + carbs + fats
     return [
       { name: "蛋白质", value: protein, color: "#e74c3c", percentage: ((protein / total) * 100).toFixed(1) },
       { name: "碳水化合物", value: carbs, color: "#f39c12", percentage: ((carbs / total) * 100).toFixed(1) },
@@ -241,11 +256,21 @@ function AnalysisPageContent() {
         <div className="p-4 space-y-4">
           {/* Food Image - 完整显示食物图片 */}
           <Card className="overflow-hidden shadow-lg border-0 bg-gradient-to-br from-gray-50 to-gray-100">
-            <img 
-              src={displayData.image || "/placeholder.svg"} 
-              alt={displayData.name} 
-              className="w-full max-h-80 object-contain p-2" 
-            />
+            <div className="relative w-full aspect-[4/3] bg-gray-100">
+              <Image
+                src={displayData.image || "https://via.placeholder.com/400x300?text=Food"}
+                alt={displayData.name}
+                fill
+                className="object-contain"
+                priority={true}
+                sizes="(max-width: 768px) 100vw, 400px"
+                onError={(e) => {
+                  // 如果图片加载失败，显示占位符
+                  const target = e.target as HTMLImageElement;
+                  target.src = "https://via.placeholder.com/400x300?text=Food";
+                }}
+              />
+            </div>
           </Card>
 
           {/* Food Name & Confidence */}

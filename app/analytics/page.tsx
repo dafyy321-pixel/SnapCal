@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { TrendingUp, TrendingDown, Flame, Drumstick, Wheat, Droplet, Calendar, ChevronRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
+import { AuthGuard } from "@/components/auth-guard"
 import { cn } from "@/lib/utils"
 import {
   BarChart,
@@ -22,14 +23,40 @@ import {
 } from "recharts"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { analyticsService } from "@/lib/supabase"
+import { useCachedAnalytics } from "@/hooks/use-cache"
+
+// 定义数据类型
+interface DailyData {
+  day: string
+  date: string
+  calories: number
+  protein: number
+  carbs: number
+  fats: number
+}
+
+interface NutritionStats {
+  avgCalories: number
+  caloriesTrend: number
+  prevCalories: number
+  avgProtein: number
+  proteinTrend: number
+  prevProtein: number
+  avgCarbs: number
+  carbsTrend: number
+  prevCarbs: number
+  avgFats: number
+  fatsTrend: number
+  prevFats: number
+}
 
 export default function AnalyticsPage() {
   const [timeframe, setTimeframe] = useState<"本周" | "上周" | "本月">("本周")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [weeklyData, setWeeklyData] = useState<any[]>([])
+  const [weeklyData, setWeeklyData] = useState<DailyData[]>([])
   const [dailyCalorieGoal, setDailyCalorieGoal] = useState(1900)
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<NutritionStats>({
     avgCalories: 0,
     caloriesTrend: 0,
     prevCalories: 0,
@@ -44,57 +71,111 @@ export default function AnalyticsPage() {
     prevFats: 0,
   })
 
-  // 获取营养分析数据
+  // 使用缓存Hook获取营养分析数据
+  const { data: analyticsData, loading: analyticsLoading, error: analyticsError } = useCachedAnalytics(timeframe)
+
+  // 处理缓存数据变化
   useEffect(() => {
-    const fetchAnalytics = async () => {
+    if (analyticsLoading) {
       setLoading(true)
       setError(null)
-      try {
-        const response = await analyticsService.getAnalytics(timeframe)
-        if (response.success) {
-          setStats(response.stats)
-          setWeeklyData(response.dailyData)
-          setDailyCalorieGoal(response.dailyCalorieGoal)
-        }
-      } catch (err) {
-        console.error("获取营养分析数据失败:", err)
-        setError("加载失败，请稍后重试")
-      } finally {
-        setLoading(false)
-      }
+      return
     }
 
-    fetchAnalytics()
-  }, [timeframe])
+    if (analyticsError) {
+      setLoading(false)
+      setError(analyticsError.message)
+      return
+    }
 
-  const totalProtein = weeklyData.length > 0 ? weeklyData.reduce((sum, day) => sum + day.protein, 0) : 0
-  const totalCarbs = weeklyData.length > 0 ? weeklyData.reduce((sum, day) => sum + day.carbs, 0) : 0
-  const totalFats = weeklyData.length > 0 ? weeklyData.reduce((sum, day) => sum + day.fats, 0) : 0
-  const totalMacros = totalProtein + totalCarbs + totalFats || 1
+    if (analyticsData) {
+      console.log('Analytics cached response:', analyticsData) // 调试日志
 
-  const macroDistribution = [
-    {
-      name: "蛋白质",
-      value: totalProtein,
-      color: "#e74c3c",
-      percentage: ((totalProtein / totalMacros) * 100).toFixed(1),
-    },
-    {
-      name: "碳水化合物",
-      value: totalCarbs,
-      color: "#f39c12",
-      percentage: ((totalCarbs / totalMacros) * 100).toFixed(1),
-    },
-    { name: "脂肪", value: totalFats, color: "#3498db", percentage: ((totalFats / totalMacros) * 100).toFixed(1) },
-  ]
+      // 检查响应数据结构
+      if (analyticsData && analyticsData.success && analyticsData.data) {
+        setStats(analyticsData.data.stats || {
+          avgCalories: 0,
+          caloriesTrend: 0,
+          prevCalories: 0,
+          avgProtein: 0,
+          proteinTrend: 0,
+          prevProtein: 0,
+          avgCarbs: 0,
+          carbsTrend: 0,
+          prevCarbs: 0,
+          avgFats: 0,
+          fatsTrend: 0,
+          prevFats: 0,
+        })
+        setWeeklyData(analyticsData.data.dailyData || [])
+        setDailyCalorieGoal(analyticsData.data.dailyCalorieGoal || 1900)
+        setLoading(false)
+        setError(null)
+      }
+    }
+  }, [analyticsData, analyticsLoading, analyticsError])
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const totalProtein = weeklyData && Array.isArray(weeklyData) && weeklyData.length > 0
+    ? weeklyData.reduce((sum, day) => sum + (day.protein || 0), 0) : 0
+  const totalCarbs = weeklyData && Array.isArray(weeklyData) && weeklyData.length > 0
+    ? weeklyData.reduce((sum, day) => sum + (day.carbs || 0), 0) : 0
+  const totalFats = weeklyData && Array.isArray(weeklyData) && weeklyData.length > 0
+    ? weeklyData.reduce((sum, day) => sum + (day.fats || 0), 0) : 0
+
+  // 如果没有营养数据（都是0），显示均匀分布33.33%
+  const macroDistribution = (() => {
+    if (totalProtein === 0 && totalCarbs === 0 && totalFats === 0) {
+      return [
+        {
+          name: "蛋白质",
+          value: 0,
+          color: "#e74c3c",
+          percentage: "33.3",
+        },
+        {
+          name: "碳水化合物",
+          value: 0,
+          color: "#f39c12",
+          percentage: "33.3",
+        },
+        { name: "脂肪", value: 0, color: "#3498db", percentage: "33.4" }, // 33.4 确保总和为100%
+      ]
+    }
+
+    const totalMacros = totalProtein + totalCarbs + totalFats
+    return [
+      {
+        name: "蛋白质",
+        value: totalProtein,
+        color: "#e74c3c",
+        percentage: ((totalProtein / totalMacros) * 100).toFixed(1),
+      },
+      {
+        name: "碳水化合物",
+        value: totalCarbs,
+        color: "#f39c12",
+        percentage: ((totalCarbs / totalMacros) * 100).toFixed(1),
+      },
+      { name: "脂肪", value: totalFats, color: "#3498db", percentage: ((totalFats / totalMacros) * 100).toFixed(1) },
+    ]
+  })()
+
+  const CustomTooltip = ({ active, payload, label }: {
+    active?: boolean
+    payload?: Array<{
+      name: string
+      value: number
+      color: string
+      dataKey?: string
+    }>
+    label?: string
+  }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-card/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-3.5">
           <p className="text-sm font-semibold mb-2.5 text-foreground">{label}</p>
           <div className="space-y-1.5">
-            {payload.map((entry: any, index: number) => {
+            {payload.map((entry, index: number) => {
               const name = entry.name === "calories"
                 ? "卡路里"
                 : entry.name === "protein"
@@ -129,7 +210,7 @@ export default function AnalyticsPage() {
       <div className="min-h-screen bg-background flex items-center justify-center pb-24">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
-          <p className="text-muted-foreground">加载中...</p>
+          <p className="text-muted-foreground">加载分析数据...</p>
         </div>
         <BottomNav />
       </div>
@@ -154,8 +235,9 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-md mx-auto px-4 py-6 space-y-5">
+    <AuthGuard>
+      <div className="min-h-screen bg-background pb-24">
+        <div className="max-w-md mx-auto px-4 py-6 space-y-5">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">营养分析</h1>
@@ -340,10 +422,20 @@ export default function AnalyticsPage() {
                 stroke="#1f2937"
                 strokeWidth={3}
                 fill="url(#calorieGradient)"
-                dot={(props: any) => {
+                dot={(props: {
+                  cx?: number
+                  cy?: number
+                  payload?: {
+                    date: string
+                    calories: number
+                    protein: number
+                    carbs: number
+                    fats: number
+                  }
+                }) => {
                   const { cx, cy, payload } = props
                   const key = `dot-${cx}-${cy}`
-                  if (payload.calories === 0) return <circle key={key} cx={cx} cy={cy} r={0} />
+                  if (!payload || payload.calories === 0) return <circle key={key} cx={cx} cy={cy} r={0} />
                   return (
                     <circle
                       key={key}
@@ -523,9 +615,10 @@ export default function AnalyticsPage() {
           </div>
         </Card>
         )}
-      </div>
+        </div>
 
-      <BottomNav />
-    </div>
+        <BottomNav />
+      </div>
+    </AuthGuard>
   )
 }

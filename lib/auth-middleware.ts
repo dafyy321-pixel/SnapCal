@@ -64,52 +64,151 @@ export async function authenticateUser(request: NextRequest): Promise<Authentica
     )
   }
 
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // 创建带超时配置的Supabase客户端
+  const createSupabaseWithTimeout = () => {
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        global: {
+          fetch: (url, options = {}) => {
+            const timeout = 15000 // 15秒超时
 
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser(token)
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-    if (error) {
-      console.error('[Auth] Supabase auth error:', error)
-      throw new AppError(
-        "无效的认证令牌",
-        401,
-        "INVALID_TOKEN"
-      )
-    }
-
-    if (!user) {
-      throw new AppError(
-        "用户不存在",
-        401,
-        "USER_NOT_FOUND"
-      )
-    }
-
-    return {
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      user_metadata: user.user_metadata,
-    }
-
-  } catch (error) {
-    // 如果是我们自定义的错误，直接抛出
-    if (error instanceof AppError) {
-      throw error
-    }
-
-    // 其他未知错误
-    console.error('[Auth] Unexpected error:', error)
-    throw new AppError(
-      "认证服务异常",
-      500,
-      "AUTH_SERVICE_ERROR"
+            return fetch(url, {
+              ...options,
+              signal: controller.signal,
+            })
+            .finally(() => {
+              clearTimeout(timeoutId)
+            })
+            .catch((error) => {
+              if (error.name === 'AbortError') {
+                throw new Error('认证服务连接超时')
+              }
+              throw error
+            })
+          }
+        }
+      }
     )
   }
+
+  let lastError: Error | null = null
+
+  // 重试机制：最多尝试3次，每次间隔递增
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const supabase = createSupabaseWithTimeout()
+
+      console.log(`[Auth] 认证尝试 ${attempt}/3`)
+
+      const { data: { user }, error } = await supabase.auth.getUser(token)
+
+      if (error) {
+        console.error('[Auth] Supabase auth error (尝试 ' + attempt + '):', error)
+        lastError = new Error(error.message)
+
+        // 如果是网络相关错误，可以重试
+        if (attempt < 3 && isRetryableError(error)) {
+          console.log(`[Auth] 网络错误，${attempt * 500}ms后重试...`)
+          await new Promise(resolve => setTimeout(resolve, attempt * 500))
+          continue
+        }
+
+        throw new AppError(
+          "无效的认证令牌",
+          401,
+          "INVALID_TOKEN"
+        )
+      }
+
+      if (!user) {
+        throw new AppError(
+          "用户不存在",
+          401,
+          "USER_NOT_FOUND"
+        )
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        user_metadata: user.user_metadata,
+      }
+
+    } catch (error) {
+      lastError = error as Error
+
+      // 如果是我们自定义的AppError且不是网络问题，直接抛出
+      if (error instanceof AppError && !isRetryableError(error)) {
+        throw error
+      }
+
+      // 如果是最后一次尝试，或者不是可重试错误，直接抛出
+      if (attempt === 3 || !isRetryableError(error as Error)) {
+        break
+      }
+
+      console.log(`[Auth] 认证失败，${attempt * 500}ms后重试...`)
+      await new Promise(resolve => setTimeout(resolve, attempt * 500))
+    }
+  }
+
+  // 所有重试都失败了
+  if (lastError) {
+    console.error('[Auth] 所有认证尝试都失败:', lastError)
+
+    if (lastError instanceof AppError) {
+      throw lastError
+    }
+
+    throw new AppError(
+      "认证服务暂时不可用，请检查网络连接后重试",
+      503,
+      "AUTH_SERVICE_UNAVAILABLE"
+    )
+  }
+
+  throw new AppError(
+    "认证失败",
+    500,
+    "AUTHENTICATION_FAILED"
+  )
+}
+
+/**
+ * 判断是否为可重试的错误
+ * @param error 错误对象
+ * @returns 是否可重试
+ */
+function isRetryableError(error: any): boolean {
+  const message = error?.message || error
+
+  if (typeof message === 'string') {
+    const msg = message.toLowerCase()
+    return (
+      msg.includes('fetch failed') ||
+      msg.includes('timeout') ||
+      msg.includes('network') ||
+      msg.includes('connect') ||
+      msg.includes('econnreset') ||
+      msg.includes('connection') ||
+      msg.includes('连接') ||
+      msg.includes('网络') ||
+      msg.includes('超时')
+    )
+  }
+
+  // 对于Supabase AuthError，检查状态码
+  if (error?.__isAuthError && error?.status === 0) {
+    return true
+  }
+
+  return false
 }
 
 /**

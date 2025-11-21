@@ -1,8 +1,10 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/react"
 import { PerformanceMonitor } from "@/components/performance-monitor"
+import { ErrorBoundary } from "@/components/error-boundary"
+import { apiCache } from "@/lib/cache/api-cache"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -31,14 +33,23 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // 在客户端启用全局API缓存
+  if (typeof window !== 'undefined') {
+    apiCache.setup()
+  }
+
   return (
     <html lang="zh-CN">
       <body className={`font-sans antialiased`}>
-        {/* 在桌面上显示灰色背景，模拟移动设备 */}
-        <div className="min-h-screen bg-gray-100 md:bg-gray-200">
-          {children}
-        </div>
+        <ErrorBoundary maxRetries={3}>
+          {/* 在桌面上显示灰色背景，模拟移动设备 */}
+          <div className="min-h-screen bg-gray-100 md:bg-gray-200">
+            {children}
+          </div>
+        </ErrorBoundary>
+        <ErrorBoundary>
         <Analytics />
+      </ErrorBoundary>
         <PerformanceMonitor />
       </body>
     </html>

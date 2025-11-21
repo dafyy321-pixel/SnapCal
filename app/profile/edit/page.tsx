@@ -37,8 +37,8 @@ export default function ProfileEditPage() {
             phone: userInfo.phone || user.user_metadata?.phone || "",
             birthday: user.user_metadata?.birthday || "",
             gender: user.user_metadata?.gender || "",
-            height: user.user_metadata?.height || "",
-            weight: user.user_metadata?.weight || "",
+            height: user.user_metadata?.height?.toString() || "",
+            weight: user.user_metadata?.weight?.toString() || "",
           })
         }
       } catch (error) {

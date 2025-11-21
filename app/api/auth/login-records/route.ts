@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { withAuth } from "@/lib/auth-middleware"
-import { errorResponse } from "@/lib/error-handler"
+import { successResponse, errorResponse, Logger } from "@/lib/error-handler"
 import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -41,8 +41,7 @@ async function getLoginRecordsHandler(request: NextRequest) {
     throw error
   }
 
-  return NextResponse.json({
-    success: true,
+  return successResponse({
     total: count,
     records: data,
     user_type: isAdmin ? "admin" : "user",

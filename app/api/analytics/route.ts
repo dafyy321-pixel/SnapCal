@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server"
+import { NextRequest } from "next/server"
 import { withAuth } from "@/lib/auth-middleware"
-import { errorResponse } from "@/lib/error-handler"
+import { successResponse, errorResponse, Logger } from "@/lib/error-handler"
 import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -62,10 +62,7 @@ async function getAnalyticsHandler(request: NextRequest) {
     profile?.daily_calorie_goal || 1900
   )
 
-  return NextResponse.json({
-    success: true,
-    ...analytics,
-  })
+  return successResponse(analytics)
 }
 
 // 🔒 使用认证中间件包装API处理函数

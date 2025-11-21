@@ -36,18 +36,47 @@ export default function AuthPage() {
         const data = await response.json()
 
         if (!response.ok) {
-          setError(data.error || "登录失败")
+          setError(data.error?.message || "登录失败")
           return
         }
 
         // 保存 session 到本地存储
-        if (data.session) {
-          await authService.setSession(
-            data.session.access_token,
-            data.session.refresh_token
+        if (data.success && data.data?.session) {
+          console.log('[Auth] 开始保存session:', {
+            hasAccessToken: !!data.data.session.access_token,
+            hasRefreshToken: !!data.data.session.refresh_token,
+            userId: data.data.user?.id
+          })
+
+          const result = await authService.setSession(
+            data.data.session.access_token,
+            data.data.session.refresh_token
           )
+
+          console.log('[Auth] setSession结果:', {
+            error: result.error?.message,
+            data: !!result.data?.session
+          })
+
+          // 额外确保：直接保存session到localStorage格式，确保authManager能读取
+          const sessionData = {
+            currentSession: {
+              user: data.data.session.user,
+              access_token: data.data.session.access_token,
+              refresh_token: data.data.session.refresh_token,
+              expires_at: data.data.session.expires_at,
+              expires_in: data.data.session.expires_in,
+              token_type: data.data.session.token_type
+            }
+          }
+          localStorage.setItem('supabase.auth.token', JSON.stringify(sessionData))
+          console.log('[Auth] 直接保存session到localStorage完成')
+
           // 保存用户信息到 localStorage
-          localStorage.setItem("user", JSON.stringify(data.user))
+          localStorage.setItem("user", JSON.stringify(data.data.user))
+
+          // 同时设置 token 到 Cookie，供 proxy.ts 中间件使用
+          document.cookie = `sb-access-token=${data.data.session.access_token}; path=/; max-age=3600; SameSite=Lax`
         }
 
         // 登录成功，跳转到首页
@@ -68,7 +97,7 @@ export default function AuthPage() {
         const data = await response.json()
 
         if (!response.ok) {
-          setError(data.error || "注册失败")
+          setError(data.error?.message || "注册失败")
           return
         }
 

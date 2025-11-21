@@ -14,6 +14,8 @@ interface LoginRecord {
   user_agent: string
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function LoginRecordsPage() {
   const [records, setRecords] = useState<LoginRecord[]>([])
   const [loading, setLoading] = useState(true)

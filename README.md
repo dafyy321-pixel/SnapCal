@@ -8,12 +8,13 @@
 
 > 🎯 **关键词**：AI 营养记录 | 卡路里追踪 | 食物识别 | 健康管理 | 营养分析 | 饮食记录 | Next.js | React | TypeScript | 移动端应用 | 中式饮食
 
-[功能特性](#-功能特性) • [快速开始](#-快速开始) • [技术栈](#️-技术栈) • [项目结构](#-项目结构) • [部署指南](#-部署指南) • [使用示例](#-使用示例)
+[功能特性](#-功能特性) • [快速开始](#-快速开始) • [技术栈](#️-技术栈) • [项目结构](#-项目结构) • [部署指南](#-部署指南) • [API文档](#-api文档)
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.0-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2-blue?style=flat-square&logo=react)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.1-38bdf8?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
+[![Supabase](https://img.shields.io/badge/Supabase-3.5-3ecf8e?style=flat-square&logo=supabase)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 </div>
@@ -85,28 +86,43 @@
 
 ### 前端框架
 - **Next.js 16** - React 全栈框架（App Router）
-- **React 19** - UI 库
-- **TypeScript** - 类型安全
+- **React 19.2** - UI 库
+- **TypeScript 5.6** - 类型安全
 
 ### UI 与样式
-- **Tailwind CSS v4** - 实用优先的 CSS 框架
-- **shadcn/ui** - 高质量组件库
+- **Tailwind CSS v4.1** - 实用优先的 CSS 框架
+- **shadcn/ui** - 高质量组件库 (Radix UI)
 - **lucide-react** - 图标库
 - **next-themes** - 主题切换支持
+- **React Hook Form** - 表单处理
+- **Zod** - 数据验证
+
+### 后端与数据库
+- **Supabase** - 数据库、认证和存储
+- **PostgreSQL** - 主数据库
+- **SWR** - 数据获取和缓存
 
 ### 数据可视化
 - **Recharts** - React 图表库
 - **date-fns** - 日期处理
 
 ### AI 集成
-- **豆包 API** - 字节跳动大语言模型
-- 自定义提示词工程
+- **豆包 API (Doubao)** - 字节跳动大语言模型 (doubao-seed-1-6-flash-250828)
+- 自定义提示词工程 (135行优化提示词)
 - JSON 结果校验与处理
+- 图片哈希去重和缓存机制
 
 ### 开发工具
 - **ESLint** - 代码检查
 - **PostCSS** - CSS 处理
 - **Autoprefixer** - CSS 兼容性
+- **环境变量验证** - lib/env-config.ts
+
+### 安全与性能
+- **安全头部配置** - CSP, XSS 防护等
+- **文件验证中间件** - 图片安全检查
+- **认证中间件** - JWT 令牌管理
+- **TypeScript 严格模式** - 构建时类型检查
 
 ### 部署与分析
 - **Vercel** - 部署平台
@@ -118,47 +134,98 @@
 
 ```
 SnapCal/
-├── app/                      # Next.js App Router 页面
-│   ├── layout.tsx           # 根布局（全局 HTML 和 metadata）
-│   ├── page.tsx             # 首页（每日营养概览）
-│   ├── globals.css          # 全局样式
-│   ├── scan/                # 扫描页面
-│   │   └── page.tsx         # 相机/上传界面
-│   ├── analysis/            # 分析结果页
-│   │   └── page.tsx         # 营养详情展示
-│   ├── analytics/           # 趋势分析页
-│   │   └── page.tsx         # 统计图表
-│   ├── profile/             # 个人中心
-│   │   └── page.tsx         # 用户设置
-│   └── api/                 # API 路由
-│       └── analyze/         # 食物分析接口
-│           └── route.ts     # POST /api/analyze
-├── components/              # 组件库
-│   ├── ui/                  # shadcn/ui 组件
+├── app/                          # Next.js App Router 页面
+│   ├── layout.tsx               # 根布局（全局 HTML 和 metadata）
+│   ├── page.tsx                 # 首页（每日营养概览）
+│   ├── globals.css              # 全局样式
+│   ├── scan/                    # 扫描页面
+│   │   └── page.tsx             # 相机/上传界面
+│   ├── analysis/                # 分析结果页
+│   │   └── page.tsx             # 营养详情展示
+│   ├── analytics/               # 趋势分析页
+│   │   └── page.tsx             # 统计图表
+│   ├── profile/                 # 个人中心
+│   │   ├── page.tsx             # 用户主页
+│   │   ├── edit/                # 编辑资料
+│   │   ├── goals/               # 目标设置
+│   │   ├── achievements/        # 成就系统
+│   │   ├── export/              # 导出数据
+│   │   ├── privacy/             # 隐私设置
+│   │   ├── notifications/       # 通知设置
+│   │   ├── share/               # 分享功能
+│   │   ├── about/               # 关于页面
+│   │   └── help/                # 帮助页面
+│   ├── meal/[id]/               # 餐食详情页
+│   │   └── page.tsx             # 动态餐食详情
+│   ├── auth/                    # 认证页面
+│   │   └── page.tsx             # 登录/注册
+│   ├── admin/                   # 管理后台
+│   │   └── login-records/       # 登录记录管理
+│   └── api/                     # API 路由
+│       ├── analyze/             # 食物分析接口
+│       │   └── route.ts         # POST /api/analyze
+│       ├── meals/               # 餐食记录 CRUD
+│       │   ├── route.ts         # GET/POST /api/meals
+│       │   └── [id]/route.ts    # GET/PUT/DELETE /api/meals/[id]
+│       ├── analytics/           # 营养分析统计
+│       │   └── route.ts         # GET /api/analytics
+│       ├── analysis/[id]/       # 分析记录详情
+│       │   └── route.ts         # GET /api/analysis/[id]
+│       └── auth/                # 认证相关接口
+│           ├── login/           # 登录
+│           ├── register/        # 注册
+│           └── login-records/   # 登录记录
+├── components/                  # 组件库
+│   ├── ui/                      # shadcn/ui 组件
 │   │   ├── button.tsx
 │   │   ├── card.tsx
 │   │   ├── chart.tsx
-│   │   └── ...              # 其他 UI 组件
-│   ├── bottom-nav.tsx       # 底部导航栏
-│   ├── fab-button.tsx       # 浮动扫描按钮
-│   └── theme-provider.tsx   # 主题提供者
-├── lib/                     # 工具库
-│   ├── ai-config.ts         # AI 配置和提示词
-│   ├── doubao-service.ts    # 豆包 API 封装
-│   └── utils.ts             # 工具函数（cn 等）
-├── hooks/                   # 自定义 Hooks
-│   ├── use-mobile.ts        # 移动端检测
-│   └── use-toast.ts         #  toast 通知
-├── public/                  # 静态资源
-│   ├── logo.png             # 应用图标
-│   └── ...                  # 其他资源
-├── styles/                  # 样式文件
-│   └── globals.css          # 全局样式（备用）
-├── package.json             # 依赖配置
-├── tsconfig.json            # TypeScript 配置
-├── tailwind.config.js       # Tailwind 配置
-├── next.config.mjs          # Next.js 配置
-└── README.md                # 项目说明
+│   │   └── ...                  # 其他 UI 组件
+│   ├── bottom-nav.tsx           # 底部导航栏
+│   ├── fab-button.tsx           # 浮动扫描按钮
+│   ├── theme-provider.tsx       # 主题提供者
+│   ├── auth-guard.tsx           # 认证守卫
+│   ├── error-boundary.tsx       # 错误边界
+│   └── optimized-image.tsx      # 优化图片组件
+├── lib/                         # 工具库
+│   ├── ai-config.ts             # AI 配置和提示词
+│   ├── doubao-service.ts        # 豆包 API 封装
+│   ├── supabase.ts              # Supabase 客户端和服务
+│   ├── auth-manager.ts          # 认证管理器
+│   ├── analysis-service.ts      # 分析服务
+│   ├── env-config.ts            # 环境变量验证
+│   ├── auth-middleware.ts       # 认证中间件
+│   ├── validation-middleware.ts # 验证中间件
+│   ├── error-handler.ts         # 错误处理
+│   ├── api-response.ts          # API 响应格式化
+│   ├── auth-error-handler.ts    # 认证错误处理
+│   ├── file-security.ts         # 文件安全验证
+│   ├── data-transform.ts        # 数据转换
+│   └── utils.ts                 # 工具函数（cn 等）
+├── hooks/                       # 自定义 Hooks
+│   ├── use-mobile.ts            # 移动端检测
+│   ├── use-toast.ts             # Toast 通知
+│   ├── use-auth.ts              # 认证状态
+│   ├── use-loading-state.ts     # 加载状态
+│   └── use-persistent-state.ts  # 持久化状态
+├── types/                       # TypeScript 类型定义
+│   └── index.ts                 # 全局类型定义
+├── middleware.ts                # Next.js 中间件
+├── public/                      # 静态资源
+│   ├── logo.png                 # 应用图标
+│   └── ...                      # 其他资源
+├── migrations/                  # 数据库迁移
+│   ├── add_nutrition_details.sql # 营养详情字段
+│   └── create_logging_tables.sql # 日志表
+├── supabase/migrations/         # Supabase 迁移
+│   └── add_performance_indexes.sql # 性能索引
+├── .env.template                # 环境变量模板
+├── .env.local                   # 本地环境变量（不提交）
+├── package.json                 # 依赖配置
+├── tsconfig.json                # TypeScript 配置
+├── tailwind.config.js           # Tailwind 配置
+├── next.config.mjs              # Next.js 配置
+└── README.md                    # 项目说明
 ```
 
 ---
@@ -168,7 +235,7 @@ SnapCal/
 ### 环境要求
 
 - **Node.js** >= 18.0.0
-- **pnpm** >= 8.0.0（推荐）或 npm >= 9.0.0
+- **npm** >= 9.0.0 或 **pnpm** >= 8.0.0
 
 ### 安装步骤
 
@@ -182,40 +249,76 @@ cd SnapCal
 2. **安装依赖**
 
 ```bash
-# 使用 pnpm（推荐）
-pnpm install
-
-# 或使用 npm
+# 使用 npm
 npm install
+
+# 或使用 pnpm（推荐）
+pnpm install
 ```
 
 3. **配置环境变量**
 
-创建 `.env.local` 文件：
+复制环境变量模板并创建 `.env.local` 文件：
 
 ```bash
-# 豆包 API Key（必需）
-DOUBAO_API_KEY=your_doubao_api_key_here
-
-# 可选：使用模拟数据（开发测试）
-USE_MOCK_ANALYSIS=false
+cp .env.template .env.local
 ```
 
-> 💡 **获取豆包 API Key**：
-> 1. 访问 [火山引擎控制台](https://console.volcengine.com/)
-> 2. 开通豆包服务
-> 3. 创建 API Key
-> 4. 将 Key 复制到 `.env.local` 文件中
-
-4. **启动开发服务器**
+编辑 `.env.local` 文件，填入必需的配置：
 
 ```bash
-pnpm dev
-# 或
+# ===========================================
+# Supabase 配置 (必需)
+# ===========================================
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
+
+# ===========================================
+# AI 服务配置 (必需)
+# ===========================================
+DOUBAO_API_KEY=your-doubao-api-key-here
+
+# ===========================================
+# 开发配置 (可选)
+# ===========================================
+USE_MOCK_ANALYSIS=false  # 开发调试用
+NODE_ENV=development
+```
+
+> 💡 **获取配置值**：
+> - **Supabase**: 访问 [Supabase Dashboard](https://supabase.com/dashboard/project/_/settings/api)
+> - **豆包 API**: 访问 [火山引擎控制台](https://console.volcengine.com/)，开通豆包服务后创建 API Key
+
+4. **数据库设置**
+
+```bash
+# 安装 Supabase CLI（如果尚未安装）
+npm install -g supabase
+
+# 推送数据库迁移
+supabase db push
+
+# 或直接执行 SQL 文件
+psql -h <your-host> -U postgres -d postgres -f migrations/add_nutrition_details.sql
+```
+
+5. **验证环境变量**
+
+```bash
+# 检查环境变量是否正确配置
+npm run env:check
+```
+
+6. **启动开发服务器**
+
+```bash
 npm run dev
+# 或
+pnpm dev
 ```
 
-5. **访问应用**
+7. **访问应用**
 
 打开浏览器访问 [http://localhost:3000](http://localhost:3000)
 
@@ -223,19 +326,25 @@ npm run dev
 
 ```bash
 # 开发模式
-pnpm dev
-
-# 生产构建
-pnpm build
-
-# 启动生产服务器
-pnpm start
-
-# 代码检查
-pnpm lint
+npm run dev
 
 # 类型检查
-pnpm type-check
+npm run type-check
+
+# 构建并检查类型
+npm run build:check
+
+# 生产构建
+npm run build
+
+# 启动生产服务器
+npm run start
+
+# 代码检查
+npm run lint
+
+# 检查环境变量
+npm run env:check
 ```
 
 ---
@@ -434,16 +543,25 @@ USE_MOCK_ANALYSIS=true
 
 ## 📝 API 文档
 
-### POST /api/analyze
+### 认证
 
-分析食物图片，返回营养信息。
+所有 API 路由都需要 JWT 认证（除了 `/api/auth/login` 和 `/api/auth/register`）。在请求头中包含：
+
+```
+Authorization: Bearer <your-jwt-token>
+```
+
+### POST /api/auth/login
+
+用户登录。
 
 **请求**
 
 ```typescript
-// Content-Type: multipart/form-data
-FormData {
-  image: File  // 图片文件
+// Content-Type: application/json
+{
+  email: string
+  password: string
 }
 ```
 
@@ -453,31 +571,328 @@ FormData {
 {
   success: boolean
   data: {
-    name: string
-    confidence: number
-    description: string
-    calories: number
-    protein: number
-    carbs: number
-    fats: number
-    ingredients: string[]
-    nutrition: {
-      sodium?: number
-      fiber?: number
-      // ... 其他营养素
+    user: {
+      id: string
+      email: string
+      // 其他用户信息
     }
-    image: string  // Base64 图片
-    timestamp: string
+    session: {
+      access_token: string
+      refresh_token: string
+    }
   }
 }
 ```
 
-**错误响应**
+### POST /api/auth/register
+
+用户注册。
+
+**请求**
+
+```typescript
+// Content-Type: application/json
+{
+  email: string
+  password: string
+  // 其他注册信息
+}
+```
+
+### POST /api/analyze
+
+分析食物图片，返回营养信息。
+
+**请求**
+
+```typescript
+// Content-Type: multipart/form-data
+FormData {
+  image: File  // 图片文件（最大 5MB）
+  use_mock?: boolean  // 可选：使用模拟数据
+  force_reanalyze?: boolean  // 可选：强制重新分析
+}
+```
+
+**响应**
 
 ```typescript
 {
-  error: string
+  success: boolean
+  data: {
+    analysisId: string
+    data: {
+      name: string          // 食物名称
+      confidence: number    // 置信度 (0-100)
+      calories: number      // 卡路里
+      protein: number       // 蛋白质 (g)
+      carbs: number         // 碳水化合物 (g)
+      fats: number          // 脂肪 (g)
+      ingredients: string[] // 食材列表
+      nutrition?: {         // 详细营养素（可选）
+        fiber?: number
+        sugar?: number
+        sodium?: number
+        calcium?: number
+        vitamin_c?: number
+        iron?: number
+        cholesterol?: number
+        saturated_fat?: number
+        trans_fat?: number
+        potassium?: number
+        vitamin_a?: number
+        vitamin_d?: number
+        vitamin_e?: number
+      }
+      image: string         // Base64 图片
+      timestamp: string     // 时间戳
+      analysis_duration?: number  // 分析耗时 (ms)
+    }
+    file_warnings?: string[]  // 文件警告信息
+  }
 }
+```
+
+### GET /api/meals
+
+获取用户的餐食记录。
+
+**查询参数**
+
+- `date`: string (可选) - 指定日期，格式 YYYY-MM-DD
+
+**响应**
+
+```typescript
+{
+  success: boolean
+  data: {
+    profile: {
+      daily_calorie_goal: number
+      daily_protein_goal: number
+      daily_carbs_goal: number
+      daily_fats_goal: number
+    }
+    meals: Array<{
+      id: string
+      meal_name: string
+      meal_type: string
+      meal_date: string
+      meal_time: string
+      calories: number
+      protein: number
+      carbs: number
+      fats: number
+      // ... 详细营养素
+    }>
+  }
+}
+```
+
+### POST /api/meals
+
+创建新的餐食记录。
+
+**请求**
+
+```typescript
+// Content-Type: application/json
+{
+  meal_name: string
+  meal_type: string      // breakfast/lunch/dinner/snack
+  meal_date: string      // YYYY-MM-DD
+  meal_time: string      // HH:mm:ss
+  calories: number
+  protein: number
+  carbs: number
+  fats: number
+  image_url?: string
+  // 详细营养信息（可选）
+  fiber?: number
+  sugar?: number
+  sodium?: number
+  ingredients?: string[]
+  confidence?: number
+}
+```
+
+### GET /api/analytics
+
+获取营养分析统计数据。
+
+**查询参数**
+
+- `timeframe`: string (可选) - "本周" | "上周" | "本月"，默认 "本周"
+
+**响应**
+
+```typescript
+{
+  success: boolean
+  data: {
+    timeframe: string
+    total_days: number
+    nutrition_summary: {
+      total_calories: number
+      avg_calories: number
+      total_protein: number
+      avg_protein: number
+      // ... 其他营养素统计
+    }
+    daily_data: Array<{
+      date: string
+      calories: number
+      protein: number
+      carbs: number
+      fats: number
+    }>
+    trends: {
+      calorie_change: number      // 相比上期变化百分比
+      protein_change: number
+      // ... 其他趋势数据
+    }
+  }
+}
+```
+
+### GET /api/analysis/[id]
+
+获取分析结果详情。
+
+**路径参数**
+
+- `id`: string - 分析记录 ID
+
+**响应**
+
+```typescript
+{
+  success: boolean
+  data: {
+    id: string
+    user_id: string
+    food_name: string
+    confidence_score: number
+    // ... 完整的分析结果数据
+    created_at: string
+    analysis_status: string
+  }
+}
+```
+
+## 🔒 错误处理
+
+所有 API 返回统一的错误格式：
+
+```typescript
+{
+  success: false
+  error: {
+    code: string          // 错误代码
+    message: string       // 错误信息
+    details?: any         // 详细错误信息
+  }
+}
+```
+
+### 常见错误代码
+
+- `VALIDATION_ERROR` - 请求参数验证失败
+- `AUTHENTICATION_ERROR` - 认证失败
+- `AUTHORIZATION_ERROR` - 权限不足
+- `FILE_TOO_LARGE` - 文件过大
+- `UNSUPPORTED_FILE_TYPE` - 不支持的文件类型
+- `AI_ANALYSIS_ERROR` - AI 分析失败
+- `RATE_LIMIT_EXCEEDED` - 请求频率超限
+
+---
+
+## 🗄️ 数据库架构
+
+### 主要数据表
+
+#### user_profiles 表
+用户配置文件和目标设置
+
+```sql
+- id (uuid) - 主键
+- user_id (uuid) - 关联 auth.users
+- daily_calorie_goal (numeric) - 每日卡路里目标
+- daily_protein_goal (numeric) - 每日蛋白质目标 (g)
+- daily_carbs_goal (numeric) - 每日碳水目标 (g)
+- daily_fats_goal (numeric) - 每日脂肪目标 (g)
+- created_at (timestamptz) - 创建时间
+- updated_at (timestamptz) - 更新时间
+```
+
+#### user_meals 表
+用户餐食记录
+
+```sql
+- id (uuid) - 主键
+- user_id (uuid) - 关联用户
+- meal_name (text) - 食物名称
+- meal_type (text) - 餐次类型
+- meal_date (date) - 餐食日期
+- meal_time (timestamptz) - 用餐时间
+- calories (numeric) - 卡路里
+- protein/carbs/fats (numeric) - 三大营养素
+- fiber/sugar/sodium (numeric) - 膳食纤维、糖、钠
+- calcium/vitamin_c/iron (numeric) - 钙、维C、铁
+- cholesterol/saturated_fat (numeric) - 胆固醇、饱和脂肪
+- ingredients (text[]) - 食材列表
+- confidence (integer) - AI 置信度
+- image_url (text) - 图片链接
+- created_at (timestamptz) - 创建时间
+```
+
+#### meal_analysis_results 表
+AI 分析结果缓存
+
+```sql
+- id (uuid) - 主键
+- user_id (uuid) - 关联用户
+- image_hash (text) - 图片哈希（去重用）
+- raw_image_url (text) - 原始图片
+- food_name (text) - 识别的食物名称
+- confidence_score (integer) - 置信度分数
+- calories/protein/carbohydrates/fats (numeric) - 营养信息
+- analysis_duration (integer) - 分析耗时 (ms)
+- model_version (text) - AI 模型版本
+- analysis_status (text) - 分析状态
+- created_at (timestamptz) - 创建时间
+```
+
+#### auth_login_records 表
+登录记录日志
+
+```sql
+- id (uuid) - 主键
+- user_id (uuid) - 用户ID
+- email (text) - 登录邮箱
+- ip_address (text) - IP地址
+- user_agent (text) - 用户代理
+- success (boolean) - 是否成功
+- failure_reason (text) - 失败原因
+- created_at (timestamptz) - 登录时间
+```
+
+### 数据库索引
+
+为优化查询性能，已添加以下索引：
+
+```sql
+-- user_meals 表索引
+CREATE INDEX idx_user_meals_user_date ON user_meals(user_id, meal_date DESC);
+CREATE INDEX idx_user_meals_date ON user_meals(meal_date DESC);
+
+-- meal_analysis_results 表索引
+CREATE INDEX idx_analysis_results_user_hash ON meal_analysis_results(user_id, image_hash);
+CREATE INDEX idx_analysis_results_created ON meal_analysis_results(created_at DESC);
+
+-- auth_login_records 表索引
+CREATE INDEX idx_login_records_user ON auth_login_records(user_id, created_at DESC);
+CREATE INDEX idx_login_records_email ON auth_login_records(email, created_at DESC);
 ```
 
 ---
@@ -486,32 +901,52 @@ FormData {
 
 ### Q: 无法识别食物怎么办？
 
-A: 
+A:
 1. 确保图片清晰，光线充足
 2. 食物占图片主体位置
 3. 尝试重新拍摄或上传
-4. 检查 AI API Key 是否有效
+4. 检查豆包 API Key 是否有效
+5. 使用 `USE_MOCK_ANALYSIS=true` 测试功能
 
 ### Q: 营养数据不准确？
 
-A: 
+A:
 1. AI 识别基于图片估算，可能存在误差
-2. 可通过份量调整功能手动校准
+2. 可通过份量调整功能手动校准（0.5x-3.0x）
 3. 建议结合实际情况调整
+4. 查看置信度分数，低置信度结果需谨慎参考
 
-### Q: 如何更换 AI 服务商？
+### Q: 环境变量配置错误？
 
-A: 
-1. 修改 `lib/doubao-service.ts`
-2. 实现新的 API 调用逻辑
-3. 保持返回数据结构一致
+A:
+1. 运行 `npm run env:check` 检查配置
+2. 确保所有必需变量都已设置
+3. 检查 Supabase URL 和 Key 的格式
+4. 验证豆包 API Key 权限
+
+### Q: 数据库连接失败？
+
+A:
+1. 检查 Supabase 项目是否运行正常
+2. 验证数据库迁移是否完成：`supabase db push`
+3. 确认 RLS (Row Level Security) 策略配置
+4. 检查网络连接和防火墙设置
+
+### Q: 构建失败怎么办？
+
+A:
+1. 运行 `npm run type-check` 检查类型错误
+2. 确保所有依赖已正确安装：`npm install`
+3. 检查环境变量是否完整：`npm run env:check`
+4. 使用 `npm run build:check` 进行完整检查
 
 ### Q: 部署后无法访问？
 
-A: 
-1. 检查环境变量是否配置正确
-2. 查看 Vercel 日志排查错误
+A:
+1. 检查 Vercel 环境变量配置
+2. 查看 Vercel 函数日志排查错误
 3. 确认 API Key 权限和配额
+4. 检查 Supabase 域名是否已添加到 images.domains
 
 ---
 
@@ -780,25 +1215,77 @@ function ThemeToggle() {
 
 ---
 
+## 🔒 安全特性
+
+### 已实现的安全措施
+
+1. **认证与授权**
+   - ✅ JWT 令牌认证机制
+   - ✅ 自动令牌刷新
+   - ✅ 会话管理和超时处理
+   - ✅ Row Level Security (RLS) 策略
+
+2. **API 安全**
+   - ✅ 请求速率限制 (100次/15分钟)
+   - ✅ 文件大小限制 (5MB)
+   - ✅ 文件类型验证
+   - ✅ 文件内容安全检查
+   - ✅ 统一错误处理
+
+3. **安全头部配置**
+   - ✅ Content Security Policy (CSP)
+   - ✅ X-Content-Type-Options: nosniff
+   - ✅ X-Frame-Options: DENY
+   - ✅ X-XSS-Protection
+   - ✅ Strict-Transport-Security
+
+4. **数据保护**
+   - ✅ 环境变量加密存储
+   - ✅ 敏感信息不暴露给客户端
+   - ✅ API 密钥安全配置
+   - ✅ 数据库连接加密
+
+5. **TypeScript 严格模式**
+   - ✅ 构建时类型检查 (`ignoreBuildErrors: false`)
+   - ✅ 运行时数据验证 (Zod schemas)
+   - ✅ API 参数验证
+
+6. **图片处理安全**
+   - ✅ 文件元数据清理
+   - ✅ 恶意内容检测
+   - ✅ 安全文件名生成
+   - ✅ Base64 编码验证
+
+### 安全最佳实践
+
+- 🔒 定期轮换 API 密钥
+- 🔒 监控异常登录活动
+- 🔒 使用强密码策略
+- 🔒 定期备份重要数据
+- 🔒 遵循最小权限原则
+
+---
+
 ## 🚧 已知问题与限制
 
 ### 当前限制
 
 1. **数据持久化**
-   - ❌ 当前仅使用 `sessionStorage`，刷新后数据丢失
-   - 💡 计划：添加数据库支持
+   - ✅ **已解决**：集成 Supabase 数据库
+   - 所有数据现在都持久化存储
 
 2. **用户系统**
-   - ❌ 暂无用户登录/注册功能
-   - 💡 计划：集成 OAuth 认证
+   - ✅ **已解决**：完整的用户认证系统
+   - 支持注册、登录、会话管理
 
 3. **AI 准确性**
    - ⚠️ AI 识别基于图片估算，可能存在误差
+   - ✅ 已添加置信度分数和份量调整功能
    - 💡 建议：用户可以手动调整数据
 
 4. **离线支持**
-   - ❌ 需要网络连接才能使用
-   - 💡 计划：添加 PWA 支持
+   - ❌ 仍需要网络连接才能使用 AI 分析
+   - 💡 计划：添加 PWA 支持和离线模式
 
 ---
 
