@@ -54,7 +54,8 @@
       "Bash(curl:*)",
       "mcp__chrome-devtools__press_key",
       "WebFetch(domain:api.github.com)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "ask": []
