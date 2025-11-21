@@ -265,7 +265,7 @@ export default function AnalyticsPage() {
 
         {/* Weekly Overview Cards */}
         <div className="grid grid-cols-2 gap-3">
-          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-shadow">
+          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
                 <Flame className="w-4.5 h-4.5 text-amber-600" />
@@ -285,7 +285,7 @@ export default function AnalyticsPage() {
             <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.prevCalories})</p>
           </Card>
 
-          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-shadow">
+          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '50ms' }}>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-protein/20 to-protein/10 flex items-center justify-center">
                 <Drumstick className="w-4.5 h-4.5 text-protein" />
@@ -305,7 +305,7 @@ export default function AnalyticsPage() {
             <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.prevProtein}g)</p>
           </Card>
 
-          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-shadow">
+          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '100ms' }}>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-carbs/20 to-carbs/10 flex items-center justify-center">
                 <Wheat className="w-4.5 h-4.5 text-carbs" />
@@ -325,7 +325,7 @@ export default function AnalyticsPage() {
             <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.avgCarbs}g)</p>
           </Card>
 
-          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-shadow">
+          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '150ms' }}>
             <div className="flex items-center gap-2 mb-3">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-fats/20 to-fats/10 flex items-center justify-center">
                 <Droplet className="w-4.5 h-4.5 text-fats" />
@@ -356,17 +356,18 @@ export default function AnalyticsPage() {
 
         {/* Calorie Trend Chart */}
         {weeklyData.length > 0 && (
-        <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-amber-50/30">
-          <div className="flex items-center justify-between mb-4">
+        <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-amber-50/30 slide-up">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h3 className="font-semibold text-base">卡路里趋势</h3>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
               <div className="w-2 h-2 rounded-full bg-gradient-to-r from-gray-800 to-gray-600"></div>
               <span className="font-medium">实际摄入</span>
               <div className="w-6 border-t-2 border-dashed border-amber-500 ml-2"></div>
               <span className="font-medium text-amber-600">目标</span>
             </div>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
+          <div className="h-64 sm:h-72 md:h-80">
+            <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="calorieGradient" x1="0" y1="0" x2="0" y2="1">
@@ -377,24 +378,35 @@ export default function AnalyticsPage() {
                   <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.3" />
                 </filter>
               </defs>
-              <CartesianGrid 
-                strokeDasharray="3 3" 
-                stroke="hsl(var(--border))" 
-                vertical={false} 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="hsl(var(--border))"
+                vertical={false}
                 opacity={0.5}
               />
               <XAxis
                 dataKey="day"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                tick={{
+                  fill: "hsl(var(--muted-foreground))",
+                  fontSize: 11
+                }}
                 axisLine={false}
                 tickLine={false}
-                dy={5}
+                dy={10}
+                height={60}
+                tickFormatter={(value) => {
+                  // 在小屏幕上缩短日期显示
+                  return value.length > 3 ? value.slice(0, 3) : value
+                }}
               />
-              <YAxis 
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} 
-                axisLine={false} 
+              <YAxis
+                tick={{
+                  fill: "hsl(var(--muted-foreground))",
+                  fontSize: 11
+                }}
+                axisLine={false}
                 tickLine={false}
-                width={50}
+                width={40}
                 domain={[0, 'auto']}
                 tickFormatter={(value) => value}
               />
@@ -458,15 +470,17 @@ export default function AnalyticsPage() {
                 connectNulls
               />
             </AreaChart>
-          </ResponsiveContainer>
+            </ResponsiveContainer>
+          </div>
         </Card>
         )}
 
         {/* Macronutrient Distribution */}
         {weeklyData.length > 0 && (
-        <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-orange-50/20">
+        <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-orange-50/20 slide-up" style={{ animationDelay: '100ms' }}>
           <h3 className="font-semibold mb-4 text-base">营养素分布</h3>
-          <ResponsiveContainer width="100%" height={200}>
+          <div className="h-64 sm:h-72 md:h-80">
+            <ResponsiveContainer width="100%" height="100%">
             <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="proteinGradient" x1="0" y1="0" x2="0" y2="1">
@@ -482,28 +496,39 @@ export default function AnalyticsPage() {
                   <stop offset="100%" stopColor="#2563eb" stopOpacity={0.85} />
                 </linearGradient>
               </defs>
-              <CartesianGrid 
-                strokeDasharray="3 3" 
-                stroke="hsl(var(--border))" 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="hsl(var(--border))"
                 vertical={false}
                 opacity={0.5}
               />
               <XAxis
                 dataKey="day"
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                tick={{
+                  fill: "hsl(var(--muted-foreground))",
+                  fontSize: 11
+                }}
                 axisLine={false}
                 tickLine={false}
-                dy={5}
+                dy={10}
+                height={60}
+                tickFormatter={(value) => {
+                  // 在小屏幕上缩短日期显示
+                  return value.length > 3 ? value.slice(0, 3) : value
+                }}
               />
-              <YAxis 
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} 
-                axisLine={false} 
+              <YAxis
+                tick={{
+                  fill: "hsl(var(--muted-foreground))",
+                  fontSize: 11
+                }}
+                axisLine={false}
                 tickLine={false}
-                width={50}
+                width={40}
                 domain={[0, 'auto']}
                 tickFormatter={(value) => value}
               />
-              <Tooltip 
+              <Tooltip
                 content={<CustomTooltip />}
                 cursor={{ fill: "rgba(0, 0, 0, 0.03)" }}
               />
@@ -529,8 +554,9 @@ export default function AnalyticsPage() {
                 maxBarSize={40}
               />
             </BarChart>
-          </ResponsiveContainer>
-          <div className="flex items-center justify-center gap-5 mt-4">
+            </ResponsiveContainer>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 mt-4">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded-sm shadow-sm" style={{ background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)" }} />
               <span className="text-xs text-muted-foreground font-medium">蛋白质</span>
@@ -547,15 +573,15 @@ export default function AnalyticsPage() {
 
           <div className="mt-5 pt-5 border-t border-border">
             <h4 className="font-semibold mb-3 text-sm">本周营养素总览</h4>
-            <div className="flex items-center justify-between gap-5">
-              <ResponsiveContainer width={130} height={130}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
+              <ResponsiveContainer width={120} height={120} className="sm:w-[130px] sm:h-[130px]">
                 <PieChart>
                   <Pie
                     data={macroDistribution}
                     cx="50%"
                     cy="50%"
-                    innerRadius={38}
-                    outerRadius={58}
+                    innerRadius={32}
+                    outerRadius={48}
                     paddingAngle={2}
                     dataKey="value"
                   >
@@ -565,14 +591,14 @@ export default function AnalyticsPage() {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex-1 space-y-2.5">
+              <div className="flex-1 w-full space-y-2 sm:space-y-2.5">
                 {macroDistribution.map((macro) => (
-                  <div key={macro.name} className="flex items-center justify-between">
+                  <div key={macro.name} className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: macro.color }} />
-                      <span className="text-xs text-muted-foreground font-medium">{macro.name}</span>
+                      <div className="w-3 h-3 rounded-full shadow-sm flex-shrink-0" style={{ backgroundColor: macro.color }} />
+                      <span className="text-xs text-muted-foreground font-medium truncate">{macro.name}</span>
                     </div>
-                    <span className="text-sm font-bold tabular-nums">{macro.percentage}%</span>
+                    <span className="text-sm font-bold tabular-nums text-foreground">{macro.percentage}%</span>
                   </div>
                 ))}
               </div>

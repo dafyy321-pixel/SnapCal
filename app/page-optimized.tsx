@@ -72,15 +72,13 @@ export default function HomePageOptimized() {
     data: mealsData,
     loading: mealsLoading,
     error: mealsError,
-    isValid: mealsValid,
     mutate: refetchMeals
   } = useCachedMeals(dateStr)
 
   const {
     data: profileData,
     loading: profileLoading,
-    error: profileError,
-    isValid: profileValid
+    error: profileError
   } = useCachedProfile()
 
   const targetCalories = dailyData.remainingCalories
@@ -114,7 +112,7 @@ export default function HomePageOptimized() {
 
   // 数据处理函数（使用缓存数据）
   const processData = useCallback(() => {
-    if (!mealsValid || !profileValid) return
+    if (!mealsData && !profileData) return
 
     const meals = mealsData?.meals || []
     const profile = profileData?.profile || profileData || {}
@@ -204,7 +202,7 @@ export default function HomePageOptimized() {
     })
 
     setCurrentEquivalent(Math.floor(Math.abs(remainingCalories)))
-  }, [mealsData, mealsValid, profileData, profileValid])
+  }, [mealsData, profileData])
 
   // 监听缓存数据变化，自动更新UI
   useEffect(() => {
