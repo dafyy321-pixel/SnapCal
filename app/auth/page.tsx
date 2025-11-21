@@ -123,7 +123,7 @@ export default function AuthPage() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => window.history.back()}
-            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/50 transition-colors active:scale-95"
+            className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted/50 touch-feedback"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -234,7 +234,7 @@ export default function AuthPage() {
               <div className="text-right">
                 <button
                   type="button"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-sm text-muted-foreground hover:text-foreground touch-feedback p-1 rounded"
                 >
                   忘记密码？
                 </button>
@@ -242,7 +242,7 @@ export default function AuthPage() {
             )}
 
             {/* Submit Button */}
-            <Button type="submit" className="w-full h-11" size="lg" disabled={loading}>
+            <Button type="submit" className="w-full h-11 touch-feedback" size="lg" disabled={loading}>
               {loading ? "处理中..." : (isLogin ? "登录" : "注册")}
             </Button>
           </form>
@@ -261,7 +261,7 @@ export default function AuthPage() {
                 setUsername("")
                 setConfirmPassword("")
               }}
-              className="ml-2 text-foreground font-medium hover:underline"
+              className="ml-2 text-foreground font-medium hover:underline touch-feedback p-1 rounded"
             >
               {isLogin ? "立即注册" : "立即登录"}
             </button>
@@ -271,9 +271,9 @@ export default function AuthPage() {
         {/* Terms and Privacy */}
         <p className="text-xs text-center text-muted-foreground px-8">
           继续即表示您同意我们的
-          <button className="text-foreground hover:underline mx-1">服务条款</button>
+          <button className="text-foreground hover:underline mx-1 touch-feedback p-1 rounded">服务条款</button>
           和
-          <button className="text-foreground hover:underline mx-1">隐私政策</button>
+          <button className="text-foreground hover:underline mx-1 touch-feedback p-1 rounded">隐私政策</button>
         </p>
       </div>
     </div>

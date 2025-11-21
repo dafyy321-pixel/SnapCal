@@ -11,7 +11,7 @@ import { format } from 'date-fns'
 export default function CacheTestPage() {
   const [testResults, setTestResults] = useState<any[]>([])
   const stats = useCacheStats()
-  const { clearCache } = useCacheManager()
+  const clearCache = useCacheManager().clear
 
   // 测试不同的缓存数据
   const { data: mealsData, loading: mealsLoading, error: mealsError } = useCachedMeals(format(new Date(), 'yyyy-MM-dd'))

@@ -7,6 +7,7 @@ import { Camera, X, ImageIcon, Sparkles, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { authService } from "@/lib/supabase"
+import { OptimizedImage, FoodImage } from "@/components/optimized-image"
 
 // 将 data URL 转为 Blob，避免对 data: 协议发起网络请求（受 CSP 限制）
 function dataURLToBlob(dataUrl: string): Blob {
@@ -120,31 +121,45 @@ export default function ScanPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/20 md:bg-gray-200 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-black/20 md:bg-gray-200 z-50 flex items-center justify-center safe-padding-top md:safe-padding-top-0">
       {/* 容器 - 在大屏幕上限制为手机尺寸 */}
-      <div className="w-full h-full max-w-md bg-background flex flex-col md:shadow-2xl md:h-[90vh] md:rounded-lg overflow-hidden">
+      <div className="w-full h-[100dvh] max-w-md bg-background flex flex-col md:h-[95vh] md:rounded-lg md:shadow-2xl overflow-hidden relative">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border safe-padding-top md:safe-padding-top-0">
           <h1 className="text-xl font-bold">扫描食物</h1>
-          <Button variant="ghost" size="icon" onClick={handleClose} disabled={isAnalyzing}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClose}
+            disabled={isAnalyzing}
+            className="touch-feedback"
+          >
             <X className="w-5 h-5" />
           </Button>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-600 px-4 py-3 flex items-center gap-3">
+          <div className="bg-red-500/10 border border-red-500/20 text-red-600 px-4 py-3 flex items-center gap-3 slide-up">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <p className="text-sm">{error}</p>
           </div>
         )}
 
         {/* 预览区 */}
-        <div className="flex-1 relative bg-black">
+        <div className="flex-1 relative bg-black min-h-0 smooth-scroll">
           {!image && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 p-8">
               <div className="w-32 h-32 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/25 shadow-md">
-                <img src="/jimeng-2025-11-05-2611-logo_design,_a_minimalist,_friendly_came...png" alt="Scan" className="w-16 h-16 object-contain invert brightness-200 contrast-200 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]" />
+                <OptimizedImage
+                  src="/jimeng-2025-11-05-2611-logo_design,_a_minimalist,_friendly_came...png"
+                  alt="Scan"
+                  width={64}
+                  height={64}
+                  className="object-contain invert brightness-200 contrast-200 drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]"
+                  priority={true}
+                  lazy={false}
+                />
               </div>
               <div className="text-center space-y-2">
                 <h2 className="text-xl font-semibold text-white">准备扫描</h2>
@@ -154,7 +169,19 @@ export default function ScanPage() {
           )}
 
           {image && (
-            <img src={image || "/placeholder.svg"} alt="Captured food" className="w-full h-full object-contain" />
+            <div className="w-full h-full">
+              <OptimizedImage
+                src={image}
+                alt="Captured food"
+                width={400}
+                height={300}
+                className="w-full h-full object-contain"
+                priority={true}
+                lazy={false}
+                showLoadingState={false}
+                showErrorState={false}
+              />
+            </div>
           )}
 
           {/* Loading Overlay */}
@@ -184,17 +211,21 @@ export default function ScanPage() {
         </div>
 
         {/* Controls */}
-        <div className="p-6 space-y-4 bg-background">
+        <div className="flex-shrink-0 p-6 space-y-4 bg-background safe-padding-bottom md:safe-padding-bottom-0">
           {!image && !isAnalyzing && (
             <div className="flex gap-3">
-              <Button onClick={() => cameraInputRef.current?.click()} className="flex-1 h-14 text-base" size="lg">
+              <Button
+                onClick={() => cameraInputRef.current?.click()}
+                className="flex-1 h-14 text-base touch-feedback"
+                size="lg"
+              >
                 <Camera className="w-5 h-5 mr-2" />
                 打开相机
               </Button>
               <Button
                 onClick={() => galleryInputRef.current?.click()}
                 variant="outline"
-                className="flex-1 h-14 text-base"
+                className="flex-1 h-14 text-base touch-feedback"
                 size="lg"
               >
                 <ImageIcon className="w-5 h-5 mr-2" />
@@ -204,11 +235,22 @@ export default function ScanPage() {
           )}
 
           {image && (
-            <div className="flex gap-3">
-              <Button onClick={handleReset} variant="outline" className="flex-1 h-14 text-base bg-transparent" size="lg" disabled={isAnalyzing}>
+            <div className="flex gap-3 slide-up">
+              <Button
+                onClick={handleReset}
+                variant="outline"
+                className="flex-1 h-14 text-base bg-transparent touch-feedback"
+                size="lg"
+                disabled={isAnalyzing}
+              >
                 重新拍摄
               </Button>
-              <Button onClick={handleAnalyze} disabled={isAnalyzing} className="flex-1 h-14 text-base relative overflow-hidden" size="lg">
+              <Button
+                onClick={handleAnalyze}
+                disabled={isAnalyzing}
+                className="flex-1 h-14 text-base relative overflow-hidden touch-feedback"
+                size="lg"
+              >
                 {isAnalyzing ? (
                   <>
                     <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/80 to-primary animate-pulse" />

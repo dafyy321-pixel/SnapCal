@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Analytics } from "@vercel/analytics/react"
 import { PerformanceMonitor } from "@/components/performance-monitor"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { NetworkStatus } from "@/components/network-status"
 import { apiCache } from "@/lib/cache/api-cache"
 import "./globals.css"
 
@@ -44,6 +45,7 @@ export default function RootLayout({
         <ErrorBoundary maxRetries={3}>
           {/* 在桌面上显示灰色背景，模拟移动设备 */}
           <div className="min-h-screen bg-gray-100 md:bg-gray-200">
+            <NetworkStatus />
             {children}
           </div>
         </ErrorBoundary>

@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card'
 
 export function CacheMonitor() {
   const stats = useCacheStats()
-  const { clearCache } = useCacheManager()
+  const clearCache = useCacheManager().clear
   const [isVisible, setIsVisible] = useState(false)
 
   // 只在开发环境显示

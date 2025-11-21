@@ -1,0 +1,4 @@
+uid=2_0 RootWebArea url="http://localhost:3000/api/analytics?timeframe=%E6%9C%AC%E5%91%A8"
+  uid=2_1 StaticText "{"error":"未提供认证令牌","code":"MISSING_TOKEN","timestamp":"2025-11-21T07:38:36.430Z"}"
+  uid=2_2 StaticText "美观输出"
+  uid=2_3 checkbox "美观输出"

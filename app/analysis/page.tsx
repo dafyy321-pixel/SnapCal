@@ -10,7 +10,7 @@ import { mealsService, authService } from "@/lib/supabase"
 import { format } from "date-fns"
 import { FoodAnalysisData, NutritionData } from "@/types"
 import { transformAnalysisData, validateAnalysisData } from "@/lib/data-transform"
-import Image from "next/image"
+import { FoodImage } from "@/components/optimized-image"
 
 function AnalysisPageContent() {
   const router = useRouter()
@@ -257,18 +257,16 @@ function AnalysisPageContent() {
           {/* Food Image - 完整显示食物图片 */}
           <Card className="overflow-hidden shadow-lg border-0 bg-gradient-to-br from-gray-50 to-gray-100">
             <div className="relative w-full aspect-[4/3] bg-gray-100">
-              <Image
+              <FoodImage
                 src={displayData.image || "https://via.placeholder.com/400x300?text=Food"}
                 alt={displayData.name}
-                fill
-                className="object-contain"
+                width={400}
+                height={300}
+                foodName={displayData.name}
                 priority={true}
-                sizes="(max-width: 768px) 100vw, 400px"
-                onError={(e) => {
-                  // 如果图片加载失败，显示占位符
-                  const target = e.target as HTMLImageElement;
-                  target.src = "https://via.placeholder.com/400x300?text=Food";
-                }}
+                lazy={false}
+                className="object-contain"
+                containerClassName="w-full h-full"
               />
             </div>
           </Card>
