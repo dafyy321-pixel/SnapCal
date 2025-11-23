@@ -261,7 +261,7 @@ export default function ProfilePage() {
 
         {/* 底部版本信息 */}
         <div className="text-center pt-8 pb-4 px-6">
-          <p className="text-xs text-muted-foreground">Cal AI v1.0.1</p>
+          <p className="text-xs text-muted-foreground">SnapCal v1.0.1</p>
           <p className="text-xs text-muted-foreground/60 mt-1">让健康饮食更简单</p>
         </div>
       </div>

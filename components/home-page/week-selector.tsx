@@ -39,10 +39,10 @@ export const WeekSelector = memo<WeekSelectorProps>(({
       {/* 上一周按钮 */}
       <button
         onClick={onPreviousWeek}
-        className="flex-shrink-0 w-8 h-8 rounded-full hover:bg-muted/50 flex items-center justify-center touch-feedback"
+        className="flex-shrink-0 w-12 h-12 rounded-full bg-muted/80 hover:bg-muted border border-muted-foreground/20 flex items-center justify-center touch-feedback shadow-sm"
         aria-label="上一周"
       >
-        <ChevronLeft className="w-5 h-5" />
+        <ChevronLeft className="w-6 h-6 text-muted-foreground" />
       </button>
 
       {/* 中间日期列表，宽度根据内容自适应，整体与箭头一起居中 */}
@@ -84,14 +84,19 @@ export const WeekSelector = memo<WeekSelectorProps>(({
         onClick={onNextWeek}
         disabled={isCurrentWeek}
         className={cn(
-          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center touch-feedback",
+          "flex-shrink-0 w-12 h-12 rounded-full border flex items-center justify-center touch-feedback shadow-sm",
           isCurrentWeek
-            ? "opacity-30 cursor-not-allowed"
-            : "hover:bg-muted/50"
+            ? "bg-muted/30 border-muted-foreground/10 cursor-not-allowed"
+            : "bg-muted/80 hover:bg-muted border-muted-foreground/20"
         )}
         aria-label="下一周"
       >
-        <ChevronRight className="w-5 h-5" />
+        <ChevronRight
+          className={cn(
+            "w-6 h-6",
+            isCurrentWeek ? "text-muted-foreground/30" : "text-muted-foreground"
+          )}
+        />
       </button>
     </div>
   )
