@@ -2,35 +2,40 @@
 
 import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { ArrowLeft, Flame, Drumstick, Wheat, Droplet, Check, Trash2, Edit } from "lucide-react"
+import { ArrowLeft, Flame, Check, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { authService } from "@/lib/supabase"
+import { FoodImage } from "@/components/optimized-image"
+
+type Meal = {
+  id: string
+  meal_name: string
+  meal_type: string
+  meal_time: string
+  calories: number
+  protein: number
+  carbs: number
+  fats: number
+  confidence: number
+  image_url: string | null
+  ingredients: string[]
+  [key: string]: string | number | string[] | null
+}
 
 export default function MealDetailPage() {
   const router = useRouter()
   const params = useParams()
   const mealId = params.id as string
 
-  const [meal, setMeal] = useState<any>(null)
+  const [meal, setMeal] = useState<Meal | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const loadMealDetail = async () => {
       try {
-        const session = await authService.getSession()
-        if (!session?.access_token) {
-          router.push("/auth")
-          return
-        }
-
-        const response = await fetch(`/api/meals/${mealId}`, {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        })
+        const response = await fetch(`/api/meals/${mealId}`)
 
         if (!response.ok) {
           throw new Error("获取餐食详情失败")
@@ -39,7 +44,7 @@ export default function MealDetailPage() {
         const result = await response.json()
         if (result.success) {
           // 后端使用统一 ApiResponse：数据在 result.data 下
-          setMeal(result.data?.meal || result.meal || null)
+          setMeal((result.data?.meal || result.meal || null) as Meal | null)
         }
       } catch (error) {
         console.error("加载餐食详情错误:", error)
@@ -58,17 +63,8 @@ export default function MealDetailPage() {
 
     setDeleting(true)
     try {
-      const session = await authService.getSession()
-      if (!session?.access_token) {
-        router.push("/auth")
-        return
-      }
-
       const response = await fetch(`/api/meals/${mealId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
       })
 
       if (!response.ok) {
@@ -100,9 +96,9 @@ export default function MealDetailPage() {
   }
 
   // 计算三大营养素分布
-  const protein = parseFloat(meal.protein) || 0
-  const carbs = parseFloat(meal.carbs) || 0
-  const fats = parseFloat(meal.fats) || 0
+  const protein = Number(meal.protein) || 0
+  const carbs = Number(meal.carbs) || 0
+  const fats = Number(meal.fats) || 0
   const total = Math.max(protein + carbs + fats, 1)
 
   const macroDistribution = [
@@ -143,11 +139,11 @@ export default function MealDetailPage() {
 
   // 获取有值的详细营养信息
   const detailedNutrition = Object.keys(nutritionLabels)
-    .filter(key => meal[key] && parseFloat(meal[key]) > 0)
+    .filter(key => Number(meal[key]) > 0)
     .map(key => ({
       key,
       label: nutritionLabels[key],
-      value: parseFloat(meal[key]),
+      value: Number(meal[key]),
       unit: nutritionUnits[key] || 'g'
     }))
 
@@ -185,10 +181,14 @@ export default function MealDetailPage() {
           {/* Food Image */}
           {meal.image_url && (
             <Card className="overflow-hidden shadow-lg border-0 bg-gradient-to-br from-gray-50 to-gray-100">
-              <img
+              <FoodImage
                 src={meal.image_url}
                 alt={meal.meal_name}
-                className="w-full max-h-80 object-contain p-2"
+                foodName={meal.meal_name}
+                width={400}
+                height={320}
+                className="w-full"
+                imageClassName="w-full max-h-80 object-contain p-2"
               />
             </Card>
           )}

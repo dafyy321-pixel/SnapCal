@@ -98,7 +98,7 @@ export async function analyzeFoodWithDoubao(imageBase64: string) {
     try {
       // 尝试直接解析
       foodData = JSON.parse(aiContent)
-    } catch (e) {
+    } catch {
       // 如果失败，尝试提取 JSON（可能被 ```json 包裹）
       const jsonMatch = aiContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/)
       if (jsonMatch) {

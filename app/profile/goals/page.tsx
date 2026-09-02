@@ -8,12 +8,13 @@ import { Slider } from "@/components/ui/slider"
 import { BottomNav } from "@/components/bottom-nav"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
+import { profileService } from "@/lib/api-services"
 
 export default function GoalsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [goals, setGoals] = useState({
-    dailyCalories: 2000,
+    dailyCalories: 1800,
     protein: 50,
     carbs: 250,
     fats: 65,
@@ -23,33 +24,57 @@ export default function GoalsPage() {
     activityLevel: "moderate", // low, moderate, high
     weightGoal: "lose", // lose, maintain, gain
   })
+  const [height, setHeight] = useState(170)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    const loadGoals = () => {
-      const savedGoals = localStorage.getItem("userGoals")
-      if (savedGoals) {
-        setGoals(JSON.parse(savedGoals))
+    const loadGoals = async () => {
+      try {
+        const profile = await profileService.getProfile<Record<string, unknown>>()
+        setHeight(Number(profile.height) || 170)
+        setGoals(previous => ({
+          ...previous,
+          dailyCalories: Number(profile.daily_calorie_goal) || 1800,
+          protein: Number(profile.daily_protein_goal) || 50,
+          carbs: Number(profile.daily_carbs_goal) || 250,
+          fats: Number(profile.daily_fats_goal) || 65,
+          weight: Number(profile.weight) || 65,
+          targetWeight: Number(profile.target_weight) || 60,
+          weeklyGoal: Number(profile.weekly_goal) || 0.5,
+          activityLevel: ["low", "moderate", "high"].includes(String(profile.activity_level)) ? String(profile.activity_level) : "moderate",
+          weightGoal: ["lose", "maintain", "gain"].includes(String(profile.weight_goal)) ? String(profile.weight_goal) : "maintain",
+        }))
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "加载失败")
       }
     }
-    loadGoals()
+    void loadGoals()
   }, [])
 
   const handleSave = async () => {
     setLoading(true)
     try {
-      localStorage.setItem("userGoals", JSON.stringify(goals))
-      alert("目标设置已保存")
-      router.back()
+      await profileService.updateProfile({
+        daily_calorie_goal: goals.dailyCalories,
+        daily_protein_goal: goals.protein,
+        daily_carbs_goal: goals.carbs,
+        daily_fats_goal: goals.fats,
+        weight: goals.weight,
+        target_weight: goals.targetWeight,
+        weekly_goal: goals.weeklyGoal,
+        activity_level: goals.activityLevel,
+        weight_goal: goals.weightGoal,
+      })
+      router.push("/profile")
     } catch (error) {
       console.error("保存失败:", error)
-      alert("保存失败，请重试")
+      setError(error instanceof Error ? error.message : "保存失败，请重试")
     } finally {
       setLoading(false)
     }
   }
 
   const calculateBMI = () => {
-    const height = 170 // 假设身高170cm，实际应该从用户资料获取
     const weight = goals.weight
     return (weight / ((height / 100) ** 2)).toFixed(1)
   }
@@ -60,15 +85,6 @@ export default function GoalsPage() {
       case "maintain": return "保持"
       case "gain": return "增重"
       default: return "保持"
-    }
-  }
-
-  const getActivityLevelText = () => {
-    switch (goals.activityLevel) {
-      case "low": return "久坐少动"
-      case "moderate": return "中等活动"
-      case "high": return "高强度运动"
-      default: return "中等活动"
     }
   }
 
@@ -97,6 +113,7 @@ export default function GoalsPage() {
 
         {/* 内容区域 */}
         <div className="p-6 space-y-6">
+          {error && <p className="text-sm text-destructive">{error}</p>}
           {/* 每日营养目标 */}
           <Card className="p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center text-foreground">

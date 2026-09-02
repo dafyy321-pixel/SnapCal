@@ -477,20 +477,6 @@
   transform: rotate(180deg);
 }
 
-/* 成就解锁动画 */
-.achievement-unlock {
-  animation: bounceIn 0.8s ease-out, glow 2s ease-in-out infinite;
-}
-
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(34, 197, 94, 0.6);
-  }
-}
-
 /* 骨架屏动画 */
 @keyframes shimmer {
   0% {

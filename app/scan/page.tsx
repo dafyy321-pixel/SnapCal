@@ -6,29 +6,14 @@ import { useState, useRef } from "react"
 import { Camera, X, ImageIcon, Sparkles, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { authService } from "@/lib/supabase"
-import { OptimizedImage, FoodImage } from "@/components/optimized-image"
-
-// 将 data URL 转为 Blob，避免对 data: 协议发起网络请求（受 CSP 限制）
-function dataURLToBlob(dataUrl: string): Blob {
-  const [header, base64] = dataUrl.split(',')
-  const match = header.match(/data:(.*?);base64/)
-  const mime = match ? match[1] : 'image/jpeg'
-  const binary = atob(base64)
-  const len = binary.length
-  const bytes = new Uint8Array(len)
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return new Blob([bytes], { type: mime })
-}
+import { OptimizedImage } from "@/components/optimized-image"
 
 export default function ScanPage() {
   const router = useRouter()
   const [image, setImage] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [analysisResult, setAnalysisResult] = useState<any>(null)
   // 使用两个 input：一个强制打开相机（capture），一个选择相册
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
@@ -36,10 +21,11 @@ export default function ScanPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError("图片过大，请选择小于 10MB 的图片")
+      if (file.size > 5 * 1024 * 1024) {
+        setError("图片过大，请选择不超过 5MB 的图片")
         return
       }
+      setSelectedFile(file)
       const reader = new FileReader()
       reader.onload = (event) => {
         setImage(event.target?.result as string)
@@ -50,48 +36,29 @@ export default function ScanPage() {
   }
 
   const handleAnalyze = async () => {
-    if (!image) return
+    if (!image || !selectedFile) return
     setIsAnalyzing(true)
     setError(null)
 
     try {
-      // 确保用户已登录，并获取 access_token 作为认证头
-      const session = await authService.getSession()
-      if (!session?.access_token) {
-        setIsAnalyzing(false)
-        setError("请先登录后再使用扫描功能")
-        router.push("/auth")
-        return
-      }
-
-      // 直接将 data URL 转成 Blob，避免对 data: 协议发起 fetch（会被 CSP 拦截）
-      const blob = dataURLToBlob(image)
-
       // Create FormData and upload
       const formData = new FormData()
-      formData.append("image", blob, "photo.jpg")
+      formData.append("image", selectedFile)
 
-      // Call analyze API，携带 Bearer Token，满足 withAuth 中间件的认证要求
+      // 调用本地分析 API
       const analyzeResponse = await fetch("/api/analyze", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
         body: formData,
       })
 
       if (!analyzeResponse.ok) {
         const errText = await analyzeResponse.text().catch(() => "")
         console.error("[Scan] /api/analyze failed:", analyzeResponse.status, errText)
-        if (analyzeResponse.status === 401) {
-          throw new Error("登录已失效，请重新登录后再试")
-        }
         throw new Error("分析失败，请稍后重试")
       }
 
       const result = await analyzeResponse.json()
       if (result.success) {
-        setAnalysisResult(result.data)
         // 使用分析ID跳转到分析页面（注意：successResponse 会把 payload 放在 data 里）
         const analysisId = result.data?.analysisId || result.data?.id
         if (analysisId) {
@@ -117,6 +84,7 @@ export default function ScanPage() {
 
   const handleReset = () => {
     setImage(null)
+    setSelectedFile(null)
     setError(null)
   }
 

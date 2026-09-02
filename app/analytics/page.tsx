@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { TrendingUp, TrendingDown, Flame, Drumstick, Wheat, Droplet, Calendar, ChevronRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
-import { AuthGuard } from "@/components/auth-guard"
 import { cn } from "@/lib/utils"
 import {
   BarChart,
@@ -22,8 +21,6 @@ import {
   Cell,
 } from "recharts"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { analyticsService } from "@/lib/supabase"
-import { useCachedAnalytics } from "@/hooks/use-cache"
 
 // 定义数据类型
 interface DailyData {
@@ -50,12 +47,32 @@ interface NutritionStats {
   prevFats: number
 }
 
+function CustomTooltip({ active, payload, label }: {
+  active?: boolean
+  payload?: Array<{ name: string; value: number; color: string; dataKey?: string }>
+  label?: string
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-card/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-3.5">
+      <p className="text-sm font-semibold mb-2.5 text-foreground">{label}</p>
+      <div className="space-y-1.5">
+        {payload.map((entry, index) => {
+          const name = entry.name === "calories" ? "卡路里" : entry.name === "protein" ? "蛋白质" : entry.name === "carbs" ? "碳水化合物" : "脂肪"
+          return <div key={index} className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} /><span className="text-xs text-muted-foreground font-medium">{name}</span></div><span className="text-xs font-bold tabular-nums" style={{ color: entry.color }}>{entry.value}{entry.name === "calories" ? "" : "g"}</span></div>
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function AnalyticsPage() {
   const [timeframe, setTimeframe] = useState<"本周" | "上周" | "本月">("本周")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [weeklyData, setWeeklyData] = useState<DailyData[]>([])
-  const [dailyCalorieGoal, setDailyCalorieGoal] = useState(1900)
+  const [recordCount, setRecordCount] = useState(0)
+  const [dailyCalorieGoal, setDailyCalorieGoal] = useState(1800)
   const [stats, setStats] = useState<NutritionStats>({
     avgCalories: 0,
     caloriesTrend: 0,
@@ -71,28 +88,14 @@ export default function AnalyticsPage() {
     prevFats: 0,
   })
 
-  // 使用缓存Hook获取营养分析数据
-  const { data: analyticsData, loading: analyticsLoading, error: analyticsError } = useCachedAnalytics(timeframe)
-
-  // 处理缓存数据变化
   useEffect(() => {
-    if (analyticsLoading) {
-      setLoading(true)
-      setError(null)
-      return
-    }
-
-    if (analyticsError) {
-      setLoading(false)
-      setError(analyticsError.message)
-      return
-    }
-
-    if (analyticsData) {
-      console.log('Analytics cached response:', analyticsData) // 调试日志
-
-      // 检查响应数据结构
-      if (analyticsData && analyticsData.success && analyticsData.data) {
+    let cancelled = false
+    async function load() {
+      try {
+        const response = await fetch(`/api/analytics?timeframe=${encodeURIComponent(timeframe)}`)
+        const analyticsData = await response.json()
+        if (!response.ok || !analyticsData.success) throw new Error(analyticsData.error?.message || "加载分析数据失败")
+        if (cancelled) return
         setStats(analyticsData.data.stats || {
           avgCalories: 0,
           caloriesTrend: 0,
@@ -108,12 +111,17 @@ export default function AnalyticsPage() {
           prevFats: 0,
         })
         setWeeklyData(analyticsData.data.dailyData || [])
-        setDailyCalorieGoal(analyticsData.data.dailyCalorieGoal || 1900)
-        setLoading(false)
-        setError(null)
+        setRecordCount(analyticsData.data.recordCount || 0)
+        setDailyCalorieGoal(analyticsData.data.dailyCalorieGoal || 1800)
+      } catch (error) {
+        if (!cancelled) setError(error instanceof Error ? error.message : "加载失败")
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     }
-  }, [analyticsData, analyticsLoading, analyticsError])
+    void load()
+    return () => { cancelled = true }
+  }, [timeframe])
 
   const totalProtein = weeklyData && Array.isArray(weeklyData) && weeklyData.length > 0
     ? weeklyData.reduce((sum, day) => sum + (day.protein || 0), 0) : 0
@@ -121,6 +129,8 @@ export default function AnalyticsPage() {
     ? weeklyData.reduce((sum, day) => sum + (day.carbs || 0), 0) : 0
   const totalFats = weeklyData && Array.isArray(weeklyData) && weeklyData.length > 0
     ? weeklyData.reduce((sum, day) => sum + (day.fats || 0), 0) : 0
+  const hasRecords = recordCount > 0
+  const comparisonLabel = timeframe === "本月" ? "上月" : timeframe === "上周" ? "前一周" : "上周"
 
   // 如果没有营养数据（都是0），显示均匀分布33.33%
   const macroDistribution = (() => {
@@ -160,51 +170,6 @@ export default function AnalyticsPage() {
     ]
   })()
 
-  const CustomTooltip = ({ active, payload, label }: {
-    active?: boolean
-    payload?: Array<{
-      name: string
-      value: number
-      color: string
-      dataKey?: string
-    }>
-    label?: string
-  }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-card/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-3.5">
-          <p className="text-sm font-semibold mb-2.5 text-foreground">{label}</p>
-          <div className="space-y-1.5">
-            {payload.map((entry, index: number) => {
-              const name = entry.name === "calories"
-                ? "卡路里"
-                : entry.name === "protein"
-                  ? "蛋白质"
-                  : entry.name === "carbs"
-                    ? "碳水化合物"
-                    : "脂肪"
-              return (
-                <div key={index} className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-2.5 h-2.5 rounded-full" 
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="text-xs text-muted-foreground font-medium">{name}</span>
-                  </div>
-                  <span className="text-xs font-bold tabular-nums" style={{ color: entry.color }}>
-                    {entry.value}{entry.name === "calories" ? "" : "g"}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )
-    }
-    return null
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center pb-24">
@@ -235,7 +200,6 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <AuthGuard>
       <div className="min-h-screen bg-background pb-24">
         <div className="max-w-md mx-auto px-4 py-6 space-y-5">
         {/* Header */}
@@ -280,9 +244,9 @@ export default function AnalyticsPage() {
               )}
             >
               {stats.caloriesTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              <span>{Math.abs(stats.caloriesTrend)}% vs 上周</span>
+              <span>{Math.abs(stats.caloriesTrend)}% vs {comparisonLabel}</span>
             </div>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.prevCalories})</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevCalories})</p>
           </Card>
 
           <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '50ms' }}>
@@ -300,9 +264,9 @@ export default function AnalyticsPage() {
               )}
             >
               {stats.proteinTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              <span>{Math.abs(stats.proteinTrend)}% vs 上周</span>
+              <span>{Math.abs(stats.proteinTrend)}% vs {comparisonLabel}</span>
             </div>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.prevProtein}g)</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevProtein}g)</p>
           </Card>
 
           <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '100ms' }}>
@@ -320,9 +284,9 @@ export default function AnalyticsPage() {
               )}
             >
               {stats.carbsTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              <span>{Math.abs(stats.carbsTrend)}% vs 上周</span>
+              <span>{Math.abs(stats.carbsTrend)}% vs {comparisonLabel}</span>
             </div>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.avgCarbs}g)</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevCarbs}g)</p>
           </Card>
 
           <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '150ms' }}>
@@ -340,14 +304,14 @@ export default function AnalyticsPage() {
               )}
             >
               {stats.fatsTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              <span>{Math.abs(stats.fatsTrend)}% vs 上周</span>
+              <span>{Math.abs(stats.fatsTrend)}% vs {comparisonLabel}</span>
             </div>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">(上周: {stats.prevFats}g)</p>
+            <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevFats}g)</p>
           </Card>
         </div>
 
         {/* Empty State */}
-        {weeklyData.length === 0 && (
+        {!hasRecords && (
           <Card className="p-6 text-center">
             <p className="text-muted-foreground">暂无{timeframe}的饮食记录</p>
             <p className="text-sm text-muted-foreground mt-2">开始记录您的餐食，查看营养分析数据</p>
@@ -355,7 +319,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* Calorie Trend Chart */}
-        {weeklyData.length > 0 && (
+        {hasRecords && (
         <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-amber-50/30 slide-up">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <h3 className="font-semibold text-base">卡路里趋势</h3>
@@ -476,7 +440,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* Macronutrient Distribution */}
-        {weeklyData.length > 0 && (
+        {hasRecords && (
         <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-orange-50/20 slide-up" style={{ animationDelay: '100ms' }}>
           <h3 className="font-semibold mb-4 text-base">营养素分布</h3>
           <div className="h-64 sm:h-72 md:h-80">
@@ -572,7 +536,7 @@ export default function AnalyticsPage() {
           </div>
 
           <div className="mt-5 pt-5 border-t border-border">
-            <h4 className="font-semibold mb-3 text-sm">本周营养素总览</h4>
+            <h4 className="font-semibold mb-3 text-sm">{timeframe}营养素总览</h4>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
               <ResponsiveContainer width={120} height={120} className="sm:w-[130px] sm:h-[130px]">
                 <PieChart>
@@ -607,44 +571,9 @@ export default function AnalyticsPage() {
         </Card>
         )}
 
-        {/* Insights */}
-        {weeklyData.length > 0 && (
-        <Card className="p-4 shadow-md border-0">
-          <h3 className="font-semibold mb-3 text-base">本周洞察</h3>
-          <div className="space-y-2.5">
-            <button
-              className="w-full flex gap-3 p-3 bg-green-50 rounded-xl hover:bg-green-100 transition-all border border-green-100 text-left"
-              onClick={() => alert("查看蛋白质摄入详情和建议")}
-            >
-              <div className="w-9 h-9 rounded-xl bg-green-200/50 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-4.5 h-4.5 text-green-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium mb-1">蛋白质摄入稳定</p>
-                <p className="text-xs text-muted-foreground">您本周的蛋白质摄入量保持在健康范围内</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground self-center" />
-            </button>
-            <button
-              className="w-full flex gap-3 p-3 bg-red-50 rounded-xl hover:bg-red-100 transition-all border border-red-100 text-left"
-              onClick={() => alert("查看优质全谷物食物推荐")}
-            >
-              <div className="w-9 h-9 rounded-xl bg-red-200/50 flex items-center justify-center flex-shrink-0">
-                <TrendingDown className="w-4.5 h-4.5 text-red-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium mb-1">碳水化合物偏高</p>
-                <p className="text-xs text-muted-foreground">建议减少精制碳水的摄入，增加全谷物</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground self-center" />
-            </button>
-          </div>
-        </Card>
-        )}
         </div>
 
         <BottomNav />
       </div>
-    </AuthGuard>
   )
 }

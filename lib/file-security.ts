@@ -1,5 +1,3 @@
-import { ValidationError } from "./error-handler"
-
 /**
  * 文件安全验证工具
  * 用于验证上传文件的安全性，防止恶意文件上传
@@ -58,8 +56,7 @@ export async function validateFile(
   const {
     maxSize = 5 * 1024 * 1024, // 默认5MB
     allowedTypes = ALLOWED_IMAGE_TYPES,
-    checkFileContent = true,
-    sanitizeSVG = true
+    checkFileContent = true
   } = options
 
   const errors: string[] = []
@@ -193,6 +190,9 @@ async function validateFileContent(
       if (!checkFileSignature(bytes, expectedSignature)) {
         errors.push(`文件类型与内容不匹配：${file.type}`)
         warnings.push('检测到可能的文件类型伪造攻击')
+      }
+      if (file.type === 'image/webp' && String.fromCharCode(...bytes.slice(8, 12)) !== 'WEBP') {
+        errors.push('文件类型与内容不匹配：image/webp')
       }
     }
 

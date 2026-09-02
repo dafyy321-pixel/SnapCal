@@ -24,7 +24,18 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts# Python
+next-env.d.ts
+
+# local-only Codex/MCP settings
+.mcp.json
+.claude/settings.local.json
+
+# local application data
+/data/*.db
+/data/*.db-*
+/data/uploads/
+
+# Python
 __pycache__/
 *.py[cod]
 *.class

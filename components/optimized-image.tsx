@@ -61,7 +61,7 @@ const DefaultErrorComponent: React.FC<{
   error: Error;
   retry: () => void;
   className?: string
-}> = ({ error, retry, className }) => (
+}> = ({ retry, className }) => (
   <div className={cn(
     'flex flex-col items-center justify-center bg-gray-100 rounded-lg border border-gray-200',
     'text-gray-500 text-sm',
@@ -93,8 +93,7 @@ const generateBlurPlaceholder = (width: number, height: number): string => {
     </svg>
   `
 
-  const base64 = Buffer.from(svg).toString('base64')
-  return `data:image/svg+xml;base64,${base64}`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
 /**
@@ -211,7 +210,8 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
       ref={containerRef}
       className={cn(
         'relative overflow-hidden',
-        containerClassName
+        containerClassName,
+        className
       )}
       style={{
         width: width || '100%',

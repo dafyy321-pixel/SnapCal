@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 // 豆包 API 配置
 export const DOUBAO_CONFIG = {
   apiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
@@ -134,27 +136,35 @@ export const FOOD_ANALYSIS_PROMPT = `你是一位专业的营养学家和食物�
 
 **只输出 JSON 对象，不要包含任何其他内容。**`
 
-// 验证和处理 AI 返回结果
-export function validateAndProcessFoodData(data: any) {
-  // 确保必需字段存在
-  const required = ['name', 'confidence', 'calories', 'protein', 'carbs', 'fats']
-  for (const field of required) {
-    if (data[field] === undefined || data[field] === null) {
-      throw new Error(`缺少必需字段: ${field}`)
-    }
-  }
+const nutritionValue = z.number().finite().nonnegative().max(100000)
+const foodAnalysisResultSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  confidence: z.number().finite().min(0).max(100),
+  description: z.string().trim().max(200).optional(),
+  calories: z.number().finite().nonnegative().max(10000),
+  protein: z.number().finite().nonnegative().max(1000),
+  carbs: z.number().finite().nonnegative().max(1000),
+  fats: z.number().finite().nonnegative().max(1000),
+  ingredients: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  nutrition: z.object({
+    fiber: nutritionValue.optional(),
+    sugar: nutritionValue.optional(),
+    sodium: nutritionValue.optional(),
+    calcium: nutritionValue.optional(),
+    vitaminC: nutritionValue.optional(),
+    vitaminA: nutritionValue.optional(),
+    vitaminD: nutritionValue.optional(),
+    vitaminE: nutritionValue.optional(),
+    iron: nutritionValue.optional(),
+    cholesterol: nutritionValue.optional(),
+    saturatedFat: nutritionValue.optional(),
+    transFat: nutritionValue.optional(),
+    potassium: nutritionValue.optional(),
+  }).default({}),
+})
 
-  // 如果没有 nutrition 字段，从旧格式迁移
-  if (!data.nutrition) {
-    data.nutrition = {}
-    const optionalFields = ['fiber', 'sugar', 'sodium', 'calcium', 'vitaminC', 'iron', 'cholesterol']
-    optionalFields.forEach(field => {
-      if (data[field] !== undefined) {
-        data.nutrition[field] = data[field]
-        delete data[field]
-      }
-    })
-  }
+export type ValidatedFoodAnalysis = z.infer<typeof foodAnalysisResultSchema>
 
-  return data
+export function validateAndProcessFoodData(data: unknown): ValidatedFoodAnalysis {
+  return foodAnalysisResultSchema.parse(data)
 }

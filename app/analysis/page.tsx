@@ -1,14 +1,14 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
-import { ArrowLeft, Flame, Drumstick, Wheat, Droplet, Check, Plus, Minus, TrendingUp, TrendingDown } from "lucide-react"
+import { ArrowLeft, Flame, Check, Plus, Minus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { mealsService, authService } from "@/lib/supabase"
+import { mealsService } from "@/lib/api-services"
 import { format } from "date-fns"
-import { FoodAnalysisData, NutritionData } from "@/types"
+import { FoodAnalysisData } from "@/types"
 import { transformAnalysisData, validateAnalysisData } from "@/lib/data-transform"
 import { FoodImage } from "@/components/optimized-image"
 
@@ -34,19 +34,7 @@ function AnalysisPageContent() {
 
       try {
         setLoading(true)
-        const session = await authService.getSession()
-        if (!session?.access_token) {
-          setError('请先登录后再查看分析结果')
-          setLoading(false)
-          router.push('/auth')
-          return
-        }
-
-        const response = await fetch(`/api/analysis/${analysisId}` , {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        })
+        const response = await fetch(`/api/analysis/${analysisId}`)
 
         if (!response.ok) {
           throw new Error('获取分析结果失败')
@@ -74,7 +62,7 @@ function AnalysisPageContent() {
   // Fallback mock data if none available - 使用validateAnalysisData确保类型正确
   const defaultFoodData = validateAnalysisData({
     name: "未识别的食物",
-    image: "https://via.placeholder.com/400x300?text=Food",
+    image: "/placeholder.svg",
     confidence: 45,
     calories: 200,
     protein: 10,
@@ -142,16 +130,10 @@ function AnalysisPageContent() {
       // 关联分析结果到餐食记录
       if (analysisId && meal?.id) {
         try {
-          const session = await authService.getSession()
-          if (!session?.access_token) {
-            throw new Error('未登录')
-          }
-
           await fetch(`/api/analysis/${analysisId}`, {
             method: 'PATCH',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
             },
             body: JSON.stringify({
               meal_id: meal.id,
@@ -173,7 +155,7 @@ function AnalysisPageContent() {
   }
 
   const adjustServings = (delta: number) => {
-    setServings(Math.max(0.5, servings + delta))
+    setServings(Math.min(3, Math.max(0.5, servings + delta)))
   }
 
   const calculateValue = (base: number) => {
@@ -258,7 +240,7 @@ function AnalysisPageContent() {
           <Card className="overflow-hidden shadow-lg border-0 bg-gradient-to-br from-gray-50 to-gray-100">
             <div className="relative w-full aspect-[4/3] bg-gray-100">
               <FoodImage
-                src={displayData.image || "https://via.placeholder.com/400x300?text=Food"}
+                src={displayData.image || "/placeholder.svg"}
                 alt={displayData.name}
                 width={400}
                 height={300}
@@ -307,6 +289,7 @@ function AnalysisPageContent() {
                   size="icon"
                   className="h-9 w-9 rounded-lg hover:bg-accent"
                   onClick={() => adjustServings(0.5)}
+                  disabled={servings >= 3}
                 >
                   <Plus className="w-4 h-4" />
                 </Button>
@@ -363,7 +346,7 @@ function AnalysisPageContent() {
             <Card className="p-4 shadow-sm border border-border/50">
               <h3 className="font-semibold text-base mb-3">详细营养信息</h3>
               <div className="grid grid-cols-2 gap-3">
-                {Object.entries(displayData.nutrition).map(([key, value], index, array) => {
+                {Object.entries(displayData.nutrition).map(([key, value]) => {
                   // 营养素名称映射
                   const nutritionLabels: Record<string, string> = {
                     fiber: '膨食纤维',

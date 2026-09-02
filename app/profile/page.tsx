@@ -1,271 +1,96 @@
 "use client"
 
-import { Camera, ChevronRight, Settings, Bell, Shield, HelpCircle, Share2, Award, LogOut } from "lucide-react"
-import { Card } from "@/components/ui/card"
-import { BottomNav } from "@/components/bottom-nav"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useEffect, useState } from "react"
+import { Camera, ChevronRight, Download, HelpCircle, Info, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { authService } from "@/lib/supabase"
-import { useState, useEffect } from "react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { BottomNav } from "@/components/bottom-nav"
+import { Card } from "@/components/ui/card"
+import { mealsService, profileService } from "@/lib/api-services"
+import { currentStreak } from "@/lib/date-utils"
 
-type MenuItem = {
-  icon: any
-  label: string
-  description: string
-  route?: string
-  action?: string
-  iconColor: string
-  iconBg: string
+type Profile = {
+  username: string
+  avatar_url: string | null
 }
 
-type MenuSection = {
-  items: MenuItem[]
-}
+type Meal = { meal_date: string; calories: number }
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [userData, setUserData] = useState({
-    name: "加载中...",
-    phone: "",
-    streak: 0,
-    totalLogs: 0,
-    achievements: 0,
-    avgCalories: 1650,
-  })
+  const [profile, setProfile] = useState<Profile>({ username: "本地用户", avatar_url: null })
+  const [stats, setStats] = useState({ streak: 0, totalLogs: 0, avgCalories: 0 })
 
-  // 加载用户信息
   useEffect(() => {
-    const loadUserData = async () => {
+    async function load() {
       try {
-        const user = await authService.getCurrentUser()
-        if (user) {
-          const storedUser = localStorage.getItem("user")
-          if (storedUser) {
-            const userInfo = JSON.parse(storedUser)
-            setUserData(prev => ({
-              ...prev,
-              name: userInfo.username || user.user_metadata?.username || "用户",
-              phone: userInfo.phone || user.user_metadata?.phone || "",
-            }))
-          }
-        }
+        const [loadedProfile, mealsResponse] = await Promise.all([
+          profileService.getProfile<Profile>(),
+          mealsService.getAllMeals<Meal>(),
+        ])
+        setProfile(loadedProfile)
+        const meals = mealsResponse
+        const byDate = new Map<string, number>()
+        for (const meal of meals) byDate.set(meal.meal_date, (byDate.get(meal.meal_date) || 0) + meal.calories)
+        const now = new Date()
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+        const streak = currentStreak([...byDate.keys()], today)
+        const avgCalories = byDate.size
+          ? Math.round([...byDate.values()].reduce((sum, value) => sum + value, 0) / byDate.size)
+          : 0
+        setStats({ streak, totalLogs: meals.length, avgCalories })
       } catch (error) {
-        console.error("加载用户信息错误:", error)
+        console.error("加载本地资料失败:", error)
       }
     }
-    loadUserData()
+    load()
   }, [])
 
-  // 退出登录
-  const handleLogout = async () => {
-    try {
-      await authService.signOut()
-      localStorage.removeItem("user")
-      router.push("/auth")
-    } catch (error) {
-      console.error("退出登录错误:", error)
-      alert("退出登录失败")
-    }
-  }
-
-  // 菜单项配置
-  const menuSections: MenuSection[] = [
-    {
-      items: [
-        {
-          icon: Award,
-          label: "我的成就",
-          description: "查看我的徽章与奖励",
-          route: "/profile/achievements",
-          iconColor: "text-amber-500",
-          iconBg: "bg-amber-50",
-        },
-        {
-          icon: Share2,
-          label: "分享给朋友",
-          description: "邀请好友一起记录",
-          route: "/profile/share",
-          iconColor: "text-emerald-500",
-          iconBg: "bg-emerald-50",
-        },
-        {
-          icon: Camera,
-          label: "编辑资料",
-          description: "修改个人信息和头像",
-          route: "/profile/edit",
-          iconColor: "text-blue-500",
-          iconBg: "bg-blue-50",
-        },
-      ],
-    },
-    {
-      items: [
-        {
-          icon: Bell,
-          label: "通知设置",
-          description: "管理提醒偏好",
-          route: "/profile/notifications",
-          iconColor: "text-blue-500",
-          iconBg: "bg-blue-50",
-        },
-        {
-          icon: Shield,
-          label: "隐私与安全",
-          description: "账号与数据设置",
-          route: "/profile/privacy",
-          iconColor: "text-purple-500",
-          iconBg: "bg-purple-50",
-        },
-        {
-          icon: Settings,
-          label: "目标设置",
-          description: "设置营养和体重目标",
-          route: "/profile/goals",
-          iconColor: "text-green-500",
-          iconBg: "bg-green-50",
-        },
-        {
-          icon: Camera,
-          label: "数据导出",
-          description: "导出我的健康数据",
-          route: "/profile/export",
-          iconColor: "text-orange-500",
-          iconBg: "bg-orange-50",
-        },
-      ],
-    },
-    {
-      items: [
-        {
-          icon: HelpCircle,
-          label: "帮助中心",
-          description: "常见问题与支持",
-          route: "/profile/help",
-          iconColor: "text-cyan-500",
-          iconBg: "bg-cyan-50",
-        },
-        {
-          icon: Camera,
-          label: "关于我们",
-          description: "了解 SnapCal",
-          route: "/profile/about",
-          iconColor: "text-indigo-500",
-          iconBg: "bg-indigo-50",
-        },
-      ],
-    },
-    {
-      items: [
-        {
-          icon: LogOut,
-          label: "退出登录",
-          description: "退出当前账号",
-          action: "logout", // 特殊标记，表示这是退出操作
-          iconColor: "text-red-500",
-          iconBg: "bg-red-50",
-        },
-      ],
-    },
+  const items = [
+    { icon: Camera, label: "编辑资料", description: "修改姓名和身体数据", route: "/profile/edit" },
+    { icon: Settings, label: "目标设置", description: "设置营养与体重目标", route: "/profile/goals" },
+    { icon: Download, label: "数据导出", description: "导出本地餐食和资料", route: "/profile/export" },
+    { icon: HelpCircle, label: "帮助中心", description: "查看使用说明", route: "/profile/help" },
+    { icon: Info, label: "关于 SnapCal", description: "项目和本地数据说明", route: "/profile/about" },
   ]
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto">
-        {/* 顶部用户信息卡片 */}
         <div className="bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 pt-12 pb-8 px-6 border-b">
           <div className="flex items-center gap-4 mb-6">
-            <div className="relative">
-              <Avatar className="w-20 h-20 border-4 border-white shadow-lg">
-                <AvatarImage src="/placeholder-user.jpg" />
-                <AvatarFallback className="bg-white text-2xl">👤</AvatarFallback>
-              </Avatar>
-              <button className="absolute -bottom-1 -right-1 w-8 h-8 bg-foreground rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-shadow">
-                <Camera className="w-4 h-4 text-background" />
-              </button>
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold mb-1 text-foreground">{userData.name}</h2>
-              <p className="text-sm text-muted-foreground">已连续记录 {userData.streak} 天</p>
+            <Avatar className="w-20 h-20 border-4 border-white shadow-lg">
+              <AvatarImage src={profile.avatar_url || "/placeholder-user.jpg"} />
+              <AvatarFallback>{profile.username.slice(0, 1)}</AvatarFallback>
+            </Avatar>
+            <div>
+              <h2 className="text-xl font-bold">{profile.username}</h2>
+              <p className="text-sm text-muted-foreground">数据仅保存在这台设备</p>
             </div>
           </div>
-
-          {/* 统计数据 */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-card border rounded-2xl p-3 text-center shadow-sm">
-              <div className="text-2xl font-bold text-foreground">{userData.streak}</div>
-              <div className="text-xs text-muted-foreground mt-1">连续天数</div>
-            </div>
-            <div className="bg-card border rounded-2xl p-3 text-center shadow-sm">
-              <div className="text-2xl font-bold text-foreground">{userData.totalLogs}</div>
-              <div className="text-xs text-muted-foreground mt-1">总记录数</div>
-            </div>
-            <div className="bg-card border rounded-2xl p-3 text-center shadow-sm">
-              <div className="text-2xl font-bold text-foreground">{userData.achievements}</div>
-              <div className="text-xs text-muted-foreground mt-1">获得成就</div>
-            </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="p-3 text-center"><div className="text-2xl font-bold">{stats.streak}</div><div className="text-xs text-muted-foreground">连续记录天数</div></Card>
+            <Card className="p-3 text-center"><div className="text-2xl font-bold">{stats.totalLogs}</div><div className="text-xs text-muted-foreground">总记录数</div></Card>
           </div>
         </div>
-
-        {/* 快速操作卡片 - 悬浮在渐变背景上 */}
-        <div className="px-6 -mt-6 mb-6">
-          <Card className="p-4 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm text-muted-foreground mb-1">平均每日摄入</div>
-                <div className="text-2xl font-bold">{userData.avgCalories} 卡</div>
-              </div>
-              <button
-                onClick={() => router.push("/analytics")}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-full font-medium text-sm hover:bg-primary/90 transition-colors"
-              >
-                查看详情
-              </button>
-            </div>
+        <div className="px-6 -mt-4 mb-6">
+          <Card className="p-4 shadow-lg flex items-center justify-between">
+            <div><div className="text-sm text-muted-foreground">记录日平均摄入</div><div className="text-2xl font-bold">{stats.avgCalories} 卡</div></div>
+            <button onClick={() => router.push("/analytics")} className="px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm">查看分析</button>
           </Card>
         </div>
-
-        {/* 菜单列表 */}
-        <div className="px-6 space-y-3">
-          {menuSections.map((section, sectionIndex) => (
-            <Card key={sectionIndex} className="overflow-hidden shadow-sm">
-              <div className="divide-y divide-border">
-                {section.items.map((item, itemIndex) => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={itemIndex}
-                      onClick={() => {
-                        if (item.action === "logout") {
-                          handleLogout()
-                        } else if (item.route) {
-                          router.push(item.route)
-                        }
-                      }}
-                      className="w-full p-4 flex items-center gap-4 hover:bg-accent/50 transition-colors"
-                    >
-                      <div className={`w-11 h-11 rounded-xl ${item.iconBg} flex items-center justify-center flex-shrink-0`}>
-                        <Icon className={`w-5 h-5 ${item.iconColor}`} />
-                      </div>
-                      <div className="flex-1 text-left">
-                        <div className="font-medium text-foreground">{item.label}</div>
-                        <div className="text-xs text-muted-foreground mt-0.5">{item.description}</div>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-                    </button>
-                  )
-                })}
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        {/* 底部版本信息 */}
-        <div className="text-center pt-8 pb-4 px-6">
-          <p className="text-xs text-muted-foreground">SnapCal v1.0.1</p>
-          <p className="text-xs text-muted-foreground/60 mt-1">让健康饮食更简单</p>
+        <div className="px-6">
+          <Card className="overflow-hidden divide-y">
+            {items.map(({ icon: Icon, ...item }) => (
+              <button key={item.route} onClick={() => router.push(item.route)} className="w-full p-4 flex items-center gap-4 hover:bg-accent/50">
+                <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center"><Icon className="w-5 h-5 text-primary" /></div>
+                <div className="flex-1 text-left"><div className="font-medium">{item.label}</div><div className="text-xs text-muted-foreground">{item.description}</div></div>
+                <ChevronRight className="w-5 h-5 text-muted-foreground" />
+              </button>
+            ))}
+          </Card>
         </div>
       </div>
-
       <BottomNav />
     </div>
   )

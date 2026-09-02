@@ -7,21 +7,22 @@ import { z } from "zod"
 // UUID格式验证
 const uuidSchema = z.string().uuid('无效的ID格式')
 
-// 手机号验证
-const phoneSchema = z.string()
-  .regex(/^1[3-9]\d{9}$/, '无效的手机号格式')
-
-// 邮箱验证
-const emailSchema = z.string().email('无效的邮箱格式')
-
-// 日期格式验证
-export const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '无效的日期格式')
-
-// 时间戳验证（ISO 日期时间，用于需要完整时间戳的场景）
-const timestampSchema = z.string().datetime('无效的时间格式')
+// 日期格式与真实日期验证
+export const dateSchema = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, '无效的日期格式')
+  .refine((value) => {
+    const [year, month, day] = value.split('-').map(Number)
+    const date = new Date(Date.UTC(year, month - 1, day))
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+  }, '无效的日期')
 
 // 仅时间（HH:mm 或 HH:mm:ss），适合与单独的日期字段配合使用
-const timeSchema = z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/, '无效的时间格式')
+export const timeSchema = z.string()
+  .regex(/^\d{2}:\d{2}(:\d{2})?$/, '无效的时间格式')
+  .refine((value) => {
+    const [hours, minutes, seconds = '0'] = value.split(':')
+    return Number(hours) <= 23 && Number(minutes) <= 59 && Number(seconds) <= 59
+  }, '无效的时间')
 
 // 分页参数验证
 const paginationSchema = z.object({
@@ -32,39 +33,28 @@ const paginationSchema = z.object({
 // 正整数验证
 const positiveIntSchema = z.coerce.number().int().positive('必须是正整数')
 
+const nonNegativeIntSchema = z.coerce.number().int().nonnegative('必须是非负整数')
+
 // 非负数验证
 const nonNegativeNumberSchema = z.coerce.number().nonnegative('必须是非负数')
 
-/**
- * 用户相关验证schema
- */
-
-// 用户登录schema
-export const loginSchema = z.object({
-  phone: phoneSchema,
-  password: z.string().min(6, '密码至少6位').max(100, '密码不能超过100位'),
-})
-
-// 用户注册schema
-export const registerSchema = z.object({
-  phone: phoneSchema,
-  password: z.string()
-    .min(8, '密码至少8位')
-    .max(100, '密码不能超过100位')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, '密码必须包含大小写字母和数字'),
-  confirm_password: z.string(),
-  nickname: z.string().min(1, '昵称不能为空').max(50, '昵称不能超过50位').optional(),
-}).refine((data) => data.password === data.confirm_password, {
-  message: "两次输入的密码不一致",
-  path: ["confirm_password"],
-})
-
 // 用户资料更新schema
 export const userProfileSchema = z.object({
-  nickname: z.string().min(1, '昵称不能为空').max(50, '昵称不能超过50位').optional(),
-  avatar_url: z.string().url('无效的头像URL').optional(),
+  username: z.string().trim().min(1, '姓名不能为空').max(50, '姓名不能超过50位').optional(),
+  avatar_url: z.union([z.string().url(), z.string().regex(/^\/api\/images\/[a-zA-Z0-9._-]+$/)]).nullable().optional(),
+  birthday: dateSchema.nullable().optional(),
+  gender: z.enum(['male', 'female', 'other']).nullable().optional(),
+  height: z.coerce.number().min(50).max(300).nullable().optional(),
+  weight: z.coerce.number().min(20).max(500).nullable().optional(),
+  target_weight: z.coerce.number().min(20).max(500).nullable().optional(),
+  weekly_goal: z.coerce.number().min(0).max(5).optional(),
+  activity_level: z.enum(['low', 'moderate', 'high']).optional(),
+  weight_goal: z.enum(['lose', 'maintain', 'gain']).optional(),
   daily_calorie_goal: positiveIntSchema.max(10000, '每日卡路里目标不能超过10000').optional(),
-})
+  daily_protein_goal: positiveIntSchema.max(1000).optional(),
+  daily_carbs_goal: positiveIntSchema.max(1000).optional(),
+  daily_fats_goal: positiveIntSchema.max(1000).optional(),
+}).strict()
 
 /**
  * 餐食相关验证schema
@@ -79,14 +69,27 @@ export const createMealSchema = z.object({
   meal_date: dateSchema,
   // 只要求为有效的时间字符串（如 14:30 或 14:30:00），数据库会与 meal_date 一起使用
   meal_time: timeSchema.optional(),
-  calories: positiveIntSchema.max(10000, '卡路里不能超过10000'),
+  calories: nonNegativeIntSchema.max(10000, '卡路里不能超过10000'),
   protein: nonNegativeNumberSchema.max(1000, '蛋白质不能超过1000克'),
   carbs: nonNegativeNumberSchema.max(1000, '碳水化合物不能超过1000克'),
   fats: nonNegativeNumberSchema.max(1000, '脂肪不能超过1000克'),
   ingredients: z.array(z.string().max(50, '食材名称不能超过50位')).max(20, '食材不能超过20种').optional(),
   confidence: z.coerce.number().min(0).max(100).optional(),
-  image_url: z.string().url('无效的图片URL').optional(),
-})
+  image_url: z.union([z.string().url(), z.string().regex(/^\/api\/images\/[a-zA-Z0-9._-]+$/)]).nullable().optional(),
+  fiber: nonNegativeNumberSchema.max(1000).optional(),
+  sugar: nonNegativeNumberSchema.max(1000).optional(),
+  sodium: nonNegativeNumberSchema.max(100000).optional(),
+  calcium: nonNegativeNumberSchema.max(100000).optional(),
+  vitamin_c: nonNegativeNumberSchema.max(100000).optional(),
+  iron: nonNegativeNumberSchema.max(100000).optional(),
+  cholesterol: nonNegativeNumberSchema.max(100000).optional(),
+  saturated_fat: nonNegativeNumberSchema.max(1000).optional(),
+  trans_fat: nonNegativeNumberSchema.max(1000).optional(),
+  potassium: nonNegativeNumberSchema.max(100000).optional(),
+  vitamin_a: nonNegativeNumberSchema.max(100000).optional(),
+  vitamin_d: nonNegativeNumberSchema.max(100000).optional(),
+  vitamin_e: nonNegativeNumberSchema.max(100000).optional(),
+}).strict()
 
 // 餐食记录更新schema
 export const updateMealSchema = z.object({
@@ -94,12 +97,29 @@ export const updateMealSchema = z.object({
   meal_type: z.enum(['breakfast', 'lunch', 'dinner', 'snack'], {
     errorMap: () => ({ message: '无效的餐食类型' })
   }).optional(),
-  calories: positiveIntSchema.max(10000, '卡路里不能超过10000').optional(),
+  calories: nonNegativeIntSchema.max(10000, '卡路里不能超过10000').optional(),
   protein: nonNegativeNumberSchema.max(1000, '蛋白质不能超过1000克').optional(),
   carbs: nonNegativeNumberSchema.max(1000, '碳水化合物不能超过1000克').optional(),
   fats: nonNegativeNumberSchema.max(1000, '脂肪不能超过1000克').optional(),
   ingredients: z.array(z.string().max(50, '食材名称不能超过50位')).max(20, '食材不能超过20种').optional(),
-})
+  meal_date: dateSchema.optional(),
+  meal_time: timeSchema.optional(),
+  image_url: z.union([z.string().url(), z.string().regex(/^\/api\/images\/[a-zA-Z0-9._-]+$/)]).nullable().optional(),
+  confidence: z.coerce.number().min(0).max(100).optional(),
+  fiber: nonNegativeNumberSchema.max(1000).optional(),
+  sugar: nonNegativeNumberSchema.max(1000).optional(),
+  sodium: nonNegativeNumberSchema.max(100000).optional(),
+  calcium: nonNegativeNumberSchema.max(100000).optional(),
+  vitamin_c: nonNegativeNumberSchema.max(100000).optional(),
+  iron: nonNegativeNumberSchema.max(100000).optional(),
+  cholesterol: nonNegativeNumberSchema.max(100000).optional(),
+  saturated_fat: nonNegativeNumberSchema.max(1000).optional(),
+  trans_fat: nonNegativeNumberSchema.max(1000).optional(),
+  potassium: nonNegativeNumberSchema.max(100000).optional(),
+  vitamin_a: nonNegativeNumberSchema.max(100000).optional(),
+  vitamin_d: nonNegativeNumberSchema.max(100000).optional(),
+  vitamin_e: nonNegativeNumberSchema.max(100000).optional(),
+}).strict()
 
 /**
  * 分析相关验证schema
@@ -135,17 +155,6 @@ export const linkAnalysisToMealSchema = z.object({
 })
 
 /**
- * 登录记录相关验证schema
- */
-
-// 登录记录查询schema
-export const loginRecordsQuerySchema = z.object({
-  phone: phoneSchema.optional(),
-  limit: z.coerce.number().int().positive().max(1000).default(100),
-  offset: z.coerce.number().int().nonnegative().default(0),
-})
-
-/**
  * 文件上传相关验证schema
  */
 
@@ -156,12 +165,6 @@ export const imageUploadValidation = {
   maxFiles: 1,
   requiredFields: ['image'],
 }
-
-// 食物分析请求schema
-export const foodAnalysisSchema = z.object({
-  image: z.instanceof(File, { message: '请提供有效的图片文件' }),
-  use_mock: z.coerce.boolean().optional(),
-})
 
 /**
  * API参数验证schema
@@ -213,21 +216,6 @@ export const nutritionGoalsSchema = z.object({
   daily_protein_goal: positiveIntSchema.max(1000, '每日蛋白质目标不能超过1000克').optional(),
   daily_carbs_goal: positiveIntSchema.max(1000, '每日碳水化合物目标不能超过1000克').optional(),
   daily_fats_goal: positiveIntSchema.max(1000, '每日脂肪目标不能超过1000克').optional(),
-})
-
-/**
- * 设置和配置验证schema
- */
-
-// 用户设置schema
-export const userSettingsSchema = z.object({
-  theme: z.enum(['light', 'dark', 'system']).default('system'),
-  language: z.string().length(2, '语言代码必须是2位').default('zh'),
-  notifications: z.object({
-    meal_reminders: z.boolean().default(true),
-    weekly_report: z.boolean().default(true),
-    achievement_alerts: z.boolean().default(true),
-  }).optional(),
 })
 
 /**

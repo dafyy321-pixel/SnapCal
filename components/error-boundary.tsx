@@ -6,9 +6,10 @@
 'use client'
 
 import React, { Component, ReactNode, ErrorInfo } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react'
+import { RefreshCw, Home, Bug } from 'lucide-react'
 
 interface ErrorBoundaryState {
   hasError: boolean
@@ -29,14 +30,11 @@ interface ErrorBoundaryProps {
 /**
  * 错误类型分类
  */
-const getErrorType = (error: Error): 'network' | 'auth' | 'data' | 'render' | 'unknown' => {
+const getErrorType = (error: Error): 'network' | 'data' | 'render' | 'unknown' => {
   const errorMessage = error.message.toLowerCase()
 
   if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
     return 'network'
-  }
-  if (errorMessage.includes('auth') || errorMessage.includes('unauthorized')) {
-    return 'auth'
   }
   if (errorMessage.includes('data') || errorMessage.includes('parse')) {
     return 'data'
@@ -67,12 +65,6 @@ const getErrorDisplayInfo = (error: Error) => {
       description: '无法连接到服务器，请检查网络连接后重试',
       icon: '🌐',
       actionText: '重新连接'
-    },
-    auth: {
-      title: '认证失败',
-      description: '登录状态已过期，请重新登录',
-      icon: '🔐',
-      actionText: '重新登录'
     },
     data: {
       title: '数据加载错误',
@@ -160,10 +152,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       // 强制重新渲染
       this.forceUpdate()
     }, 100)
-  }
-
-  handleGoHome = () => {
-    window.location.href = '/'
   }
 
   handleReportError = () => {
@@ -258,11 +246,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
               <Button
                 variant="outline"
-                onClick={this.handleGoHome}
                 className="w-full flex items-center gap-2"
+                asChild
               >
-                <Home className="w-4 h-4" />
-                返回首页
+                <Link href="/"><Home className="w-4 h-4" />返回首页</Link>
               </Button>
 
               {/* 开发环境或调试选项 */}
@@ -316,17 +303,20 @@ export const useErrorBoundary = () => {
   // 在开发环境暴露全局错误处理
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      window.addEventListener('error', (event) => {
+      const handleError = (event: ErrorEvent) => {
         captureError(event.error || new Error(event.message))
-      })
+      }
 
-      window.addEventListener('unhandledrejection', (event) => {
-        captureError(new Error(event.reason))
-      })
+      const handleRejection = (event: PromiseRejectionEvent) => {
+        captureError(event.reason instanceof Error ? event.reason : new Error(String(event.reason)))
+      }
+
+      window.addEventListener('error', handleError)
+      window.addEventListener('unhandledrejection', handleRejection)
 
       return () => {
-        window.removeEventListener('error', () => {})
-        window.removeEventListener('unhandledrejection', () => {})
+        window.removeEventListener('error', handleError)
+        window.removeEventListener('unhandledrejection', handleRejection)
       }
     }
   }, [captureError])
