@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "lint": "eslint .",
     "test": "tsx --test tests/*.test.ts",
-    "start": "next start",
+    "start": "next start -H 127.0.0.1",
     "type-check": "tsc --noEmit",
     "build:check": "npm run type-check && npm run build",
     "env:check": "node -e \"console.log(process.env.DOUBAO_API_KEY ? 'DOUBAO_API_KEY configured' : 'DOUBAO_API_KEY not set; local mock analysis will be used')\""

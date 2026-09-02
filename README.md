@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-打开 `http://localhost:3000`。首次访问数据 API 时会自动创建：
+打开 `http://localhost:3000`。开发和生产命令默认只监听本机回环地址，不会把未认证 API 暴露到局域网。首次访问数据 API 时会自动创建：
 
 - `data/snapcal.db`：用户资料、餐食和 AI 分析结果
 - `data/uploads/`：上传的食物图片
