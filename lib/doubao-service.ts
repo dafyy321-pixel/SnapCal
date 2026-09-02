@@ -92,8 +92,6 @@ export async function analyzeFoodWithDoubao(imageBase64: string) {
       throw new Error('AI 未返回有效内容')
     }
 
-    console.log('[DoubaoService] AI 返回内容:', aiContent)
-
     // 解析 JSON（处理可能的 markdown 代码块包裹）
     let foodData
     try {
@@ -120,7 +118,7 @@ export async function analyzeFoodWithDoubao(imageBase64: string) {
     // 验证和处理数据
     const validatedData = validateAndProcessFoodData(foodData)
 
-    console.log('[DoubaoService] 分析成功:', validatedData.name)
+    console.log('[DoubaoService] 分析成功')
 
     return {
       success: true,
