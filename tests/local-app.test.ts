@@ -121,6 +121,7 @@ test("SnapCal local data regression suite", async t => {
       assert.equal(createMealSchema.safeParse({ ...meal, meal_date: "2026-13-10" }).success, false)
       assert.equal(createMealSchema.safeParse({ ...meal, calories: 0 }).success, true)
       assert.equal(createMealSchema.safeParse({ ...meal, id: crypto.randomUUID() }).success, false)
+      assert.equal(createMealSchema.safeParse({ ...meal, image_url: "https://example.com/food.jpg" }).success, false)
     })
 
     await t.test("averages over the complete date range and computes only a current streak", () => {

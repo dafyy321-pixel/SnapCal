@@ -6,6 +6,7 @@ import { z } from "zod"
 
 // UUID格式验证
 const uuidSchema = z.string().uuid('无效的ID格式')
+const localImageUrlSchema = z.string().regex(/^\/api\/images\/[a-zA-Z0-9._-]+$/)
 
 // 日期格式与真实日期验证
 export const dateSchema = z.string()
@@ -41,7 +42,7 @@ const nonNegativeNumberSchema = z.coerce.number().nonnegative('必须是非负�
 // 用户资料更新schema
 export const userProfileSchema = z.object({
   username: z.string().trim().min(1, '姓名不能为空').max(50, '姓名不能超过50位').optional(),
-  avatar_url: z.union([z.string().url(), z.string().regex(/^\/api\/images\/[a-zA-Z0-9._-]+$/)]).nullable().optional(),
+  avatar_url: localImageUrlSchema.nullable().optional(),
   birthday: dateSchema.nullable().optional(),
   gender: z.enum(['male', 'female', 'other']).nullable().optional(),
   height: z.coerce.number().min(50).max(300).nullable().optional(),
@@ -75,7 +76,7 @@ export const createMealSchema = z.object({
   fats: nonNegativeNumberSchema.max(1000, '脂肪不能超过1000克'),
   ingredients: z.array(z.string().max(50, '食材名称不能超过50位')).max(20, '食材不能超过20种').optional(),
   confidence: z.coerce.number().min(0).max(100).optional(),
-  image_url: z.union([z.string().url(), z.string().regex(/^\/api\/images\/[a-zA-Z0-9._-]+$/)]).nullable().optional(),
+  image_url: localImageUrlSchema.nullable().optional(),
   fiber: nonNegativeNumberSchema.max(1000).optional(),
   sugar: nonNegativeNumberSchema.max(1000).optional(),
   sodium: nonNegativeNumberSchema.max(100000).optional(),
@@ -104,7 +105,7 @@ export const updateMealSchema = z.object({
   ingredients: z.array(z.string().max(50, '食材名称不能超过50位')).max(20, '食材不能超过20种').optional(),
   meal_date: dateSchema.optional(),
   meal_time: timeSchema.optional(),
-  image_url: z.union([z.string().url(), z.string().regex(/^\/api\/images\/[a-zA-Z0-9._-]+$/)]).nullable().optional(),
+  image_url: localImageUrlSchema.nullable().optional(),
   confidence: z.coerce.number().min(0).max(100).optional(),
   fiber: nonNegativeNumberSchema.max(1000).optional(),
   sugar: nonNegativeNumberSchema.max(1000).optional(),
