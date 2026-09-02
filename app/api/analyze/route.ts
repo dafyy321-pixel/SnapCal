@@ -30,6 +30,11 @@ function mockAnalysis(hash: string): ValidatedFoodAnalysis {
 
 async function handler(request: NextRequest) {
   try {
+    const contentLength = Number(request.headers.get("content-length"))
+    const maxRequestSize = (DEFAULT_IMAGE_VALIDATION.maxSize || 5 * 1024 * 1024) + 1024 * 1024
+    if (Number.isFinite(contentLength) && contentLength > maxRequestSize) {
+      throw new AppError("上传请求过大", 413, "PAYLOAD_TOO_LARGE")
+    }
     const query = parseInput(querySchema, Object.fromEntries(request.nextUrl.searchParams))
     let formData: FormData
     try {
