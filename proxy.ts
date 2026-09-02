@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 
 export function proxy(_request: NextRequest) {
+  void _request
   const policy = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline'",
