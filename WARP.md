@@ -32,4 +32,4 @@ The server validates uploaded JPEG, PNG, WebP, and GIF files, stores them locall
 
 ## Security boundary
 
-The API is intentionally unauthenticated for local use. Do not expose the service directly to the public internet without trusted access control in front of it.
+The API is intended only for the loopback-bound local service. Do not expose it directly to the public internet without trusted access control in front of it.

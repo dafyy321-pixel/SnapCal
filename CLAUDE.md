@@ -1,6 +1,6 @@
 # SnapCal repository notes
 
-- This is a local, single-user Next.js application. Do not add authentication or remote-database assumptions.
+- This is a local, single-user Next.js application. Keep it loopback-only and avoid remote-database assumptions.
 - Persistent data lives in SQLite through `lib/local-db.ts`; uploaded files live under `data/uploads`.
 - API routes validate their own body/query once with Zod and return the shared envelope from `lib/error-handler.ts`.
 - Keep the client free of database imports. Browser code uses `/api/*` through `lib/api-services.ts`.
