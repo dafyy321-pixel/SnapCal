@@ -21,6 +21,7 @@ const querySchema = z.object({
 const batchSchema = z.object({
   meals: z.array(createMealSchema).min(1).max(10),
 }).strict()
+const createMealRequestSchema = createMealSchema.extend({ analysis_id: z.string().uuid().optional() })
 
 function toMealInput(value: z.infer<typeof createMealSchema>): MealInput {
   return {
@@ -80,7 +81,11 @@ export async function POST(request: NextRequest) {
       const meals = localDb.createMeals(parsed.meals.map(toMealInput))
       return successResponse({ meals, created_count: meals.length }, 201)
     }
-    const meal = localDb.createMeal(toMealInput(parseInput(createMealSchema, body)))
+    const parsed = parseInput(createMealRequestSchema, body)
+    const { analysis_id: analysisId, ...mealData } = parsed
+    const meal = analysisId
+      ? localDb.createMealWithAnalysis(toMealInput(mealData), analysisId)
+      : localDb.createMeal(toMealInput(mealData))
     return successResponse({ meal }, 201)
   } catch (error) {
     return errorResponse(error)

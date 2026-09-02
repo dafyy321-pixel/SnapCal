@@ -123,25 +123,8 @@ function AnalysisPageContent() {
         vitamin_e: nutritionData.vitaminE ? calculateValue(nutritionData.vitaminE) : undefined,
         ingredients: displayData.ingredients || undefined,
         confidence: displayData.confidence || undefined,
+        analysis_id: analysisId || undefined,
       })
-
-      // 关联分析结果到餐食记录
-      if (analysisId && meal?.id) {
-        try {
-          await fetch(`/api/analysis/${analysisId}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              meal_id: meal.id,
-            }),
-          })
-        } catch (error) {
-          console.error('Failed to link analysis to meal:', error)
-          // 不影响主要功能，只记录错误
-        }
-      }
       
       // 成功后跳转到首页
       router.push("/")

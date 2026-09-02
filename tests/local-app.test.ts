@@ -122,6 +122,12 @@ test("SnapCal local data regression suite", async t => {
       assert.equal(localDb.getAnalysis(linkedAnalysis.id), null)
     })
 
+    await t.test("creates a meal and links its analysis in one transaction", async () => {
+      const linkedAnalysis = await analysisService.createAnalysisResult({ ...analysis, image_hash: "c".repeat(64) })
+      const linkedMeal = localDb.createMealWithAnalysis(meal, linkedAnalysis.id)
+      assert.equal(localDb.getAnalysis(linkedAnalysis.id)?.meal_id, linkedMeal.id)
+    })
+
     await t.test("rejects impossible calendar dates and clock times", () => {
       assert.equal(dateSchema.safeParse("2026-02-29").success, false)
       assert.equal(dateSchema.safeParse("2024-02-29").success, true)

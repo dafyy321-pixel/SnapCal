@@ -456,6 +456,25 @@ export const localDb = {
     return this.getMeal(record.id)!
   },
 
+  createMealWithAnalysis(input: MealInput, analysisId: string): MealRecord {
+    const database = getDatabase()
+    database.exec("BEGIN IMMEDIATE")
+    try {
+      if (!database.prepare("SELECT id FROM meal_analysis_results WHERE id = ?").get(analysisId)) {
+        throw new Error("分析结果不存在")
+      }
+      const meal = this.createMeal(input)
+      database.prepare(
+        "UPDATE meal_analysis_results SET meal_id = ?, updated_at = ? WHERE id = ?"
+      ).run(meal.id, new Date().toISOString(), analysisId)
+      database.exec("COMMIT")
+      return meal
+    } catch (error) {
+      database.exec("ROLLBACK")
+      throw error
+    }
+  },
+
   createMeals(inputs: MealInput[]): MealRecord[] {
     const database = getDatabase()
     database.exec("BEGIN IMMEDIATE")
