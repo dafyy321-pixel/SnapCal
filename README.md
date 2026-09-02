@@ -16,7 +16,7 @@ npm run dev
 - `data/snapcal.db`：用户资料、餐食和 AI 分析结果
 - `data/uploads/`：上传的食物图片
 
-这两个路径已被 Git 忽略。可用 `SNAPCAL_DB_PATH` 覆盖数据库文件位置，用 `SNAPCAL_TIME_ZONE` 覆盖默认的 `Asia/Shanghai` 时区。
+这两个路径已被 Git 忽略。可用 `SNAPCAL_DB_PATH` 覆盖数据库文件位置，用 `SNAPCAL_TIME_ZONE` 覆盖默认的 `Asia/Shanghai` 时区；如果浏览器和服务端使用不同的构建环境，请同时设置 `NEXT_PUBLIC_SNAPCAL_TIME_ZONE`，保证客户端日期显示一致。
 
 ## AI 分析
 

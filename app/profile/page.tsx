@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BottomNav } from "@/components/bottom-nav"
 import { Card } from "@/components/ui/card"
 import { mealsService, profileService } from "@/lib/api-services"
-import { currentStreak } from "@/lib/date-utils"
+import { currentStreak, localDateParts } from "@/lib/date-utils"
 
 type Profile = {
   username: string
@@ -32,8 +32,7 @@ export default function ProfilePage() {
         const meals = mealsResponse
         const byDate = new Map<string, number>()
         for (const meal of meals) byDate.set(meal.meal_date, (byDate.get(meal.meal_date) || 0) + meal.calories)
-        const now = new Date()
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+        const today = localDateParts().date
         const streak = currentStreak([...byDate.keys()], today)
         const avgCalories = byDate.size
           ? Math.round([...byDate.values()].reduce((sum, value) => sum + value, 0) / byDate.size)

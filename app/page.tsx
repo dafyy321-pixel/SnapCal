@@ -9,6 +9,7 @@ import { FabButton } from "@/components/fab-button"
 import { FoodImage } from "@/components/optimized-image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { localDateParts } from "@/lib/date-utils"
 
 type Meal = {
   id: string
@@ -32,8 +33,7 @@ type Profile = {
 const mealLabels = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" }
 
 function todayString() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+  return localDateParts().date
 }
 
 export default function HomePage() {

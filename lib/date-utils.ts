@@ -1,4 +1,4 @@
-const LOCAL_TIME_ZONE = process.env.SNAPCAL_TIME_ZONE || "Asia/Shanghai"
+const LOCAL_TIME_ZONE = process.env.NEXT_PUBLIC_SNAPCAL_TIME_ZONE || process.env.SNAPCAL_TIME_ZONE || "Asia/Shanghai"
 
 export function localDateParts(date = new Date()): { date: string; time: string } {
   const parts = new Intl.DateTimeFormat("en-CA", {

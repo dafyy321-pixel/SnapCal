@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { mealsService, profileService } from "@/lib/api-services"
+import { formatLocalDate, localDateParts, parseLocalDate } from "@/lib/date-utils"
 
 type Meal = {
   meal_date: string
@@ -46,14 +47,14 @@ export default function ExportPage() {
 
   const filtered = useMemo(() => {
     if (range === "all") return meals
-    const cutoff = new Date()
-    cutoff.setHours(0, 0, 0, 0)
+    const cutoff = parseLocalDate(localDateParts().date)
     cutoff.setDate(cutoff.getDate() - (range === "week" ? 6 : 29))
-    return meals.filter(meal => new Date(`${meal.meal_date}T00:00:00`) >= cutoff)
+    const cutoffDate = formatLocalDate(cutoff)
+    return meals.filter(meal => meal.meal_date >= cutoffDate)
   }, [meals, range])
 
   function download() {
-    const date = new Date().toISOString().slice(0, 10)
+    const { date } = localDateParts()
     let content: string
     let type: string
     let extension: string

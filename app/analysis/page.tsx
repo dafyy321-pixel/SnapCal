@@ -7,10 +7,10 @@ import { Card } from "@/components/ui/card"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { mealsService } from "@/lib/api-services"
-import { format } from "date-fns"
 import { FoodAnalysisData } from "@/types"
 import { transformAnalysisData, validateAnalysisData } from "@/lib/data-transform"
 import { FoodImage } from "@/components/optimized-image"
+import { localDateParts } from "@/lib/date-utils"
 
 function AnalysisPageContent() {
   const router = useRouter()
@@ -83,13 +83,11 @@ function AnalysisPageContent() {
     
     setSaving(true)
     try {
-      const now = new Date()
-      const mealTime = format(now, "HH:mm:ss")
-      const mealDate = format(now, "yyyy-MM-dd")
+      const { date: mealDate, time: mealTime } = localDateParts()
       
       // 根据时间自动判断餐型（后端使用英文枚举：breakfast/lunch/dinner/snack）
       const getMealType = () => {
-        const hour = now.getHours()
+        const hour = Number(mealTime.slice(0, 2))
         if (hour >= 6 && hour < 10) return "breakfast"   // 早餐
         if (hour >= 10 && hour < 14) return "lunch"      // 午餐
         if (hour >= 14 && hour < 18) return "snack"      // 下午茶/加餐
