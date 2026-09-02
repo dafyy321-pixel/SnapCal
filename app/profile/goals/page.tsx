@@ -40,7 +40,7 @@ export default function GoalsPage() {
           fats: Number(profile.daily_fats_goal) || 65,
           weight: Number(profile.weight) || 65,
           targetWeight: Number(profile.target_weight) || 60,
-          weeklyGoal: Number(profile.weekly_goal) || 0.5,
+          weeklyGoal: Number.isFinite(Number(profile.weekly_goal)) ? Number(profile.weekly_goal) : 0.5,
           activityLevel: ["low", "moderate", "high"].includes(String(profile.activity_level)) ? String(profile.activity_level) : "moderate",
           weightGoal: ["lose", "maintain", "gain"].includes(String(profile.weight_goal)) ? String(profile.weight_goal) : "maintain",
         }))
