@@ -97,7 +97,7 @@ function AnalysisPageContent() {
       
       // 保存到数据库（包括完整营养信息）
       const nutritionData = displayData.nutrition || {}
-      const meal = await mealsService.addMeal({
+      await mealsService.addMeal({
         meal_name: displayData.name,
         meal_type: getMealType(),
         meal_date: mealDate,
