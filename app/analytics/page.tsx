@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { TrendingUp, TrendingDown, Flame, Drumstick, Wheat, Droplet, Calendar, ChevronRight } from "lucide-react"
+import { TrendingUp, TrendingDown, Minus, Flame, Drumstick, Wheat, Droplet, Calendar, ChevronRight } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { BottomNav } from "@/components/bottom-nav"
 import { cn } from "@/lib/utils"
@@ -45,6 +45,15 @@ interface NutritionStats {
   avgFats: number
   fatsTrend: number
   prevFats: number
+}
+
+function trendClass(value: number, positive: string, negative: string) {
+  return value === 0 ? "text-muted-foreground" : value > 0 ? positive : negative
+}
+
+function TrendIcon({ value }: { value: number }) {
+  if (value === 0) return <Minus className="w-3.5 h-3.5" />
+  return value > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />
 }
 
 function CustomTooltip({ active, payload, label }: {
@@ -240,10 +249,10 @@ export default function AnalyticsPage() {
             <div
               className={cn(
                 "flex items-center gap-1 text-xs font-semibold",
-                stats.caloriesTrend > 0 ? "text-red-500" : "text-green-600",
+                trendClass(stats.caloriesTrend, "text-red-500", "text-green-600"),
               )}
             >
-              {stats.caloriesTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+              <TrendIcon value={stats.caloriesTrend} />
               <span>{Math.abs(stats.caloriesTrend)}% vs {comparisonLabel}</span>
             </div>
             <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevCalories})</p>
@@ -260,10 +269,10 @@ export default function AnalyticsPage() {
             <div
               className={cn(
                 "flex items-center gap-1 text-xs font-semibold",
-                stats.proteinTrend > 0 ? "text-green-600" : "text-red-500",
+                trendClass(stats.proteinTrend, "text-green-600", "text-red-500"),
               )}
             >
-              {stats.proteinTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+              <TrendIcon value={stats.proteinTrend} />
               <span>{Math.abs(stats.proteinTrend)}% vs {comparisonLabel}</span>
             </div>
             <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevProtein}g)</p>
@@ -280,10 +289,10 @@ export default function AnalyticsPage() {
             <div
               className={cn(
                 "flex items-center gap-1 text-xs font-semibold",
-                stats.carbsTrend > 0 ? "text-red-500" : "text-green-600",
+                trendClass(stats.carbsTrend, "text-red-500", "text-green-600"),
               )}
             >
-              {stats.carbsTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+              <TrendIcon value={stats.carbsTrend} />
               <span>{Math.abs(stats.carbsTrend)}% vs {comparisonLabel}</span>
             </div>
             <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevCarbs}g)</p>
@@ -300,10 +309,10 @@ export default function AnalyticsPage() {
             <div
               className={cn(
                 "flex items-center gap-1 text-xs font-semibold",
-                stats.fatsTrend > 0 ? "text-red-500" : "text-green-600",
+                trendClass(stats.fatsTrend, "text-red-500", "text-green-600"),
               )}
             >
-              {stats.fatsTrend > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+              <TrendIcon value={stats.fatsTrend} />
               <span>{Math.abs(stats.fatsTrend)}% vs {comparisonLabel}</span>
             </div>
             <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevFats}g)</p>
