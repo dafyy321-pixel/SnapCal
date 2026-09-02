@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server"
 import { z } from "zod"
-import { validateAndProcessFoodData, type ValidatedFoodAnalysis } from "@/lib/ai-config"
+import { DOUBAO_CONFIG, validateAndProcessFoodData, type ValidatedFoodAnalysis } from "@/lib/ai-config"
 import { analysisService, formatAnalysis } from "@/lib/analysis-service"
-import { shouldUseMockAnalysis } from "@/lib/analysis-mode"
+import { canReuseAnalysis, shouldUseMockAnalysis } from "@/lib/analysis-mode"
 import { parseInput } from "@/lib/api-validation"
 import { analyzeFoodWithDoubao } from "@/lib/doubao-service"
 import { AppError, errorResponse, successResponse, ValidationError } from "@/lib/error-handler"
@@ -46,8 +46,10 @@ async function handler(request: NextRequest) {
     }
     const bytes = new Uint8Array(validation.sanitizedContent || await image.arrayBuffer())
     const hash = imageHash(bytes)
+    const shouldUseMock = shouldUseMockAnalysis(query.use_mock)
+    const modelVersion = shouldUseMock ? "local-mock-v1" : DOUBAO_CONFIG.model
     const existing = await analysisService.findByHash(hash)
-    if (existing && !query.force_reanalyze) {
+    if (existing && canReuseAnalysis(existing, query.force_reanalyze, modelVersion)) {
       return successResponse({
         analysisId: existing.id,
         data: { ...formatAnalysis(existing), is_cached: true },
@@ -56,7 +58,6 @@ async function handler(request: NextRequest) {
     }
 
     const startedAt = Date.now()
-    const shouldUseMock = shouldUseMockAnalysis(query.use_mock)
     let analyzed: ValidatedFoodAnalysis
     let rawResponse: unknown
     if (shouldUseMock) {
@@ -102,7 +103,7 @@ async function handler(request: NextRequest) {
       portion_multiplier: 1,
       analysis_duration: Date.now() - startedAt,
       api_version: "v1",
-      model_version: shouldUseMock ? "local-mock-v1" : "doubao-seed-1-6-flash-250828",
+      model_version: modelVersion,
       analysis_status: "completed",
       file_metadata: {
         original_name: image.name,
