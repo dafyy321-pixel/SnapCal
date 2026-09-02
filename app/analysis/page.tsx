@@ -347,9 +347,9 @@ function AnalysisPageContent() {
                 {Object.entries(displayData.nutrition).map(([key, value]) => {
                   // 营养素名称映射
                   const nutritionLabels: Record<string, string> = {
-                    fiber: '膨食纤维',
+                    fiber: '膳食纤维',
                     sugar: '糖',
-                    sodium: '鈉',
+                    sodium: '钠',
                     calcium: '钙',
                     vitaminC: '维生素C',
                     iron: '铁',
