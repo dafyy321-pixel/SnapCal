@@ -24,7 +24,8 @@ type Meal = {
 
 function csvCell(value: unknown): string {
   const text = String(value ?? "")
-  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  const safeText = /^[=+\-@]/.test(text) ? `'${text}` : text
+  return /[",\r\n]/.test(safeText) ? `"${safeText.replace(/"/g, '""')}"` : safeText
 }
 
 export default function ExportPage() {
