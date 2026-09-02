@@ -197,7 +197,7 @@ export default function GoalsPage() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setGoals(prev => ({ ...prev, weight: Math.max(30, prev.weight - 1) }))}
+                     onClick={() => setGoals(prev => ({ ...prev, weight: Math.max(20, prev.weight - 1) }))}
                   >
                     <Minus className="w-4 h-4" />
                   </Button>
@@ -206,13 +206,13 @@ export default function GoalsPage() {
                     value={goals.weight}
                     onChange={(e) => setGoals(prev => ({ ...prev, weight: Number(e.target.value) }))}
                     className="text-center"
-                    min={30}
-                    max={200}
+                     min={20}
+                     max={500}
                   />
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setGoals(prev => ({ ...prev, weight: Math.min(200, prev.weight + 1) }))}
+                     onClick={() => setGoals(prev => ({ ...prev, weight: Math.min(500, prev.weight + 1) }))}
                   >
                     <Plus className="w-4 h-4" />
                   </Button>
@@ -225,7 +225,7 @@ export default function GoalsPage() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setGoals(prev => ({ ...prev, targetWeight: Math.max(30, prev.targetWeight - 1) }))}
+                     onClick={() => setGoals(prev => ({ ...prev, targetWeight: Math.max(20, prev.targetWeight - 1) }))}
                   >
                     <Minus className="w-4 h-4" />
                   </Button>
@@ -234,13 +234,13 @@ export default function GoalsPage() {
                     value={goals.targetWeight}
                     onChange={(e) => setGoals(prev => ({ ...prev, targetWeight: Number(e.target.value) }))}
                     className="text-center"
-                    min={30}
-                    max={200}
+                     min={20}
+                     max={500}
                   />
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => setGoals(prev => ({ ...prev, targetWeight: Math.min(200, prev.targetWeight + 1) }))}
+                     onClick={() => setGoals(prev => ({ ...prev, targetWeight: Math.min(500, prev.targetWeight + 1) }))}
                   >
                     <Plus className="w-4 h-4" />
                   </Button>
