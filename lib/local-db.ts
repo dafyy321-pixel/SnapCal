@@ -493,6 +493,28 @@ export const localDb = {
     return Number(getDatabase().prepare("DELETE FROM user_meals WHERE id = ?").run(id).changes) > 0
   },
 
+  deleteMealWithAnalyses(id: string): { deleted: boolean; imageUrls: string[] } {
+    const database = getDatabase()
+    database.exec("BEGIN IMMEDIATE")
+    try {
+      const meal = database.prepare("SELECT id FROM user_meals WHERE id = ?").get(id)
+      if (!meal) {
+        database.exec("ROLLBACK")
+        return { deleted: false, imageUrls: [] }
+      }
+      const analyses = database.prepare(
+        "SELECT raw_image_url AS imageUrl FROM meal_analysis_results WHERE meal_id = ?"
+      ).all(id) as Array<{ imageUrl: string | null }>
+      database.prepare("DELETE FROM meal_analysis_results WHERE meal_id = ?").run(id)
+      database.prepare("DELETE FROM user_meals WHERE id = ?").run(id)
+      database.exec("COMMIT")
+      return { deleted: true, imageUrls: analyses.flatMap(({ imageUrl }) => imageUrl ? [imageUrl] : []) }
+    } catch (error) {
+      database.exec("ROLLBACK")
+      throw error
+    }
+  },
+
   getAnalysis(id: string): AnalysisRecord | null {
     const row = getDatabase().prepare("SELECT * FROM meal_analysis_results WHERE id = ?").get(id) as Record<string, unknown> | undefined
     return row ? normalizeAnalysis(row) : null

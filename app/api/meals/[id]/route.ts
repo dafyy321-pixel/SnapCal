@@ -1,6 +1,7 @@
 import { parseInput, readJson } from "@/lib/api-validation"
 import { errorResponse, NotFoundError, ValidationError, successResponse } from "@/lib/error-handler"
 import { localDb } from "@/lib/local-db"
+import { deleteImage } from "@/lib/local-images"
 import { routeParamsSchema, updateMealSchema } from "@/lib/validation-schemas"
 
 export const runtime = "nodejs"
@@ -23,7 +24,12 @@ export async function GET(_request: Request, context: Context) {
 
 export async function DELETE(_request: Request, context: Context) {
   try {
-    if (!localDb.deleteMeal(await getId(context))) throw new NotFoundError("餐食不存在")
+    const result = localDb.deleteMealWithAnalyses(await getId(context))
+    if (!result.deleted) throw new NotFoundError("餐食不存在")
+    await Promise.all(result.imageUrls.flatMap(url => {
+      const match = url.match(/^\/api\/images\/([0-9a-f-]{36}\.(?:jpg|png|webp|gif))$/)
+      return match ? [deleteImage(match[1])] : []
+    }))
     return successResponse({ message: "删除成功" })
   } catch (error) {
     return errorResponse(error)
