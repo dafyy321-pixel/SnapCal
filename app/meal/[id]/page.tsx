@@ -23,6 +23,13 @@ type Meal = {
   [key: string]: string | number | string[] | null
 }
 
+const mealTypeLabels: Record<string, string> = {
+  breakfast: "早餐",
+  lunch: "午餐",
+  dinner: "晚餐",
+  snack: "加餐",
+}
+
 export default function MealDetailPage() {
   const router = useRouter()
   const params = useParams()
@@ -199,7 +206,7 @@ export default function MealDetailPage() {
               <div className="flex-1">
                 <h2 className="text-2xl font-bold leading-tight">{meal.meal_name}</h2>
                 <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
-                  <span>{meal.meal_type}</span>
+                  <span>{mealTypeLabels[meal.meal_type] || meal.meal_type}</span>
                   <span>•</span>
                   <span>{formatTime(meal.meal_time)}</span>
                 </div>
