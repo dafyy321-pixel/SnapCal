@@ -70,7 +70,8 @@ test("SnapCal local data regression suite", async t => {
   const { analysisService } = await import("../lib/analysis-service")
   const { createMealSchema, dateSchema, timeSchema } = await import("../lib/validation-schemas")
     const { canReuseAnalysis, shouldUseMockAnalysis } = await import("../lib/analysis-mode")
-  const { currentStreak } = await import("../lib/date-utils")
+    const { currentStreak } = await import("../lib/date-utils")
+    const { contentSecurityPolicy } = await import("../lib/security-headers")
     const { calculateAnalytics, getDateRange } = await import("../app/api/analytics/route")
   try {
     await t.test("initializes a persistent local profile and meal CRUD", () => {
@@ -177,6 +178,12 @@ test("SnapCal local data regression suite", async t => {
       assert.equal(canReuseAnalysis({ model_version: "local-mock-v1" }, false, "configured-model"), false)
       assert.equal(canReuseAnalysis({ model_version: "configured-model" }, false, "configured-model"), true)
       assert.equal(canReuseAnalysis({ model_version: "configured-model" }, true, "configured-model"), false)
+    })
+
+    await t.test("allows the inline Next.js hydration scripts required by the production HTML", () => {
+      const policy = contentSecurityPolicy()
+      assert.match(policy, /script-src 'self' 'unsafe-inline'/)
+      assert.doesNotMatch(policy, /strict-dynamic|nonce-/)
     })
   } finally {
     closeDatabase()
