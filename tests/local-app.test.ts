@@ -69,9 +69,9 @@ test("SnapCal local data regression suite", async t => {
   const { closeDatabase, localDb } = await import("../lib/local-db")
   const { analysisService } = await import("../lib/analysis-service")
   const { createMealSchema, dateSchema, timeSchema } = await import("../lib/validation-schemas")
-  const { shouldUseMockAnalysis } = await import("../lib/analysis-mode")
+    const { canReuseAnalysis, shouldUseMockAnalysis } = await import("../lib/analysis-mode")
   const { currentStreak } = await import("../lib/date-utils")
-  const { calculateAnalytics, getDateRange } = await import("../app/api/analytics/route")
+    const { calculateAnalytics, getDateRange } = await import("../app/api/analytics/route")
   try {
     await t.test("initializes a persistent local profile and meal CRUD", () => {
       assert.equal(localDb.getProfile().daily_calorie_goal, 1800)
@@ -149,6 +149,12 @@ test("SnapCal local data regression suite", async t => {
       assert.equal(shouldUseMockAnalysis(false, undefined), true)
       assert.equal(shouldUseMockAnalysis(false, "configured"), false)
       assert.equal(shouldUseMockAnalysis(true, "configured"), true)
+    })
+
+    await t.test("does not reuse an analysis from another model or forced request", () => {
+      assert.equal(canReuseAnalysis({ model_version: "local-mock-v1" }, false, "configured-model"), false)
+      assert.equal(canReuseAnalysis({ model_version: "configured-model" }, false, "configured-model"), true)
+      assert.equal(canReuseAnalysis({ model_version: "configured-model" }, true, "configured-model"), false)
     })
   } finally {
     closeDatabase()
