@@ -1,6 +1,6 @@
 # SnapCal
 
-SnapCal 是一个本地单用户的食物营养记录应用。它使用 Next.js 16、React 19 和 Node.js 内置 SQLite，没有登录或注册流程。
+SnapCal 是一个使用 Next.js 16、React 19 和 Node.js 内置 SQLite 的本地单用户食物营养记录应用。
 
 ## 运行
 

@@ -1,6 +1,6 @@
 # SnapCal development notes
 
-SnapCal is a local, single-user nutrition tracker built with Next.js 16 and React 19. It has no login or registration flow and uses Node.js built-in SQLite.
+SnapCal is a local, single-user nutrition tracker built with Next.js 16, React 19, and Node.js built-in SQLite.
 
 ## Commands
 
