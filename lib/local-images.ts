@@ -58,3 +58,7 @@ export async function deleteImage(name: string): Promise<void> {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
 }
+
+export function imageNameFromUrl(url: string): string | null {
+  return url.match(/^\/api\/images\/([0-9a-f-]{36}\.(?:jpg|png|webp|gif))$/)?.[1] || null
+}

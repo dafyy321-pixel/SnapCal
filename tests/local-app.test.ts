@@ -128,6 +128,13 @@ test("SnapCal local data regression suite", async t => {
       assert.equal(localDb.getAnalysis(linkedAnalysis.id)?.meal_id, linkedMeal.id)
     })
 
+    await t.test("prunes expired analyses that were never saved as meals", async () => {
+      const abandoned = await analysisService.createAnalysisResult({ ...analysis, image_hash: "d".repeat(64) })
+      const imageUrls = localDb.pruneUnlinkedAnalyses(new Date(Date.now() + 1000).toISOString())
+      assert.ok(imageUrls.includes(analysis.raw_image_url))
+      assert.equal(localDb.getAnalysis(abandoned.id), null)
+    })
+
     await t.test("rejects impossible calendar dates and clock times", () => {
       assert.equal(dateSchema.safeParse("2026-02-29").success, false)
       assert.equal(dateSchema.safeParse("2024-02-29").success, true)

@@ -7,7 +7,8 @@ import { parseInput } from "@/lib/api-validation"
 import { analyzeFoodWithDoubao } from "@/lib/doubao-service"
 import { AppError, errorResponse, successResponse, ValidationError } from "@/lib/error-handler"
 import { DEFAULT_IMAGE_VALIDATION, generateSafeFilename, validateFile } from "@/lib/file-security"
-import { deleteImage, imageHash, saveImage } from "@/lib/local-images"
+import { deleteImage, imageHash, imageNameFromUrl, saveImage } from "@/lib/local-images"
+import { localDb } from "@/lib/local-db"
 import { analysisRateLimit } from "@/lib/rate-limit"
 
 export const runtime = "nodejs"
@@ -35,6 +36,12 @@ async function handler(request: NextRequest) {
     if (Number.isFinite(contentLength) && contentLength > maxRequestSize) {
       throw new AppError("上传请求过大", 413, "PAYLOAD_TOO_LARGE")
     }
+    const abandonedBefore = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const abandonedImages = localDb.pruneUnlinkedAnalyses(abandonedBefore)
+    await Promise.all(abandonedImages.flatMap(url => {
+      const name = imageNameFromUrl(url)
+      return name ? [deleteImage(name)] : []
+    }))
     const query = parseInput(querySchema, Object.fromEntries(request.nextUrl.searchParams))
     let formData: FormData
     try {

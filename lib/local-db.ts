@@ -596,4 +596,22 @@ export const localDb = {
   deleteAnalysis(id: string): boolean {
     return Number(getDatabase().prepare("DELETE FROM meal_analysis_results WHERE id = ?").run(id).changes) > 0
   },
+
+  pruneUnlinkedAnalyses(before: string): string[] {
+    const database = getDatabase()
+    database.exec("BEGIN IMMEDIATE")
+    try {
+      const rows = database.prepare(
+        "SELECT raw_image_url AS imageUrl FROM meal_analysis_results WHERE meal_id IS NULL AND created_at < ?"
+      ).all(before) as Array<{ imageUrl: string | null }>
+      database.prepare(
+        "DELETE FROM meal_analysis_results WHERE meal_id IS NULL AND created_at < ?"
+      ).run(before)
+      database.exec("COMMIT")
+      return rows.flatMap(({ imageUrl }) => imageUrl ? [imageUrl] : [])
+    } catch (error) {
+      database.exec("ROLLBACK")
+      throw error
+    }
+  },
 }
