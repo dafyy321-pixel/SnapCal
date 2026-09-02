@@ -7,7 +7,7 @@ import { parseInput } from "@/lib/api-validation"
 import { analyzeFoodWithDoubao } from "@/lib/doubao-service"
 import { AppError, errorResponse, successResponse, ValidationError } from "@/lib/error-handler"
 import { DEFAULT_IMAGE_VALIDATION, generateSafeFilename, validateFile } from "@/lib/file-security"
-import { imageHash, saveImage } from "@/lib/local-images"
+import { deleteImage, imageHash, saveImage } from "@/lib/local-images"
 import { analysisRateLimit } from "@/lib/rate-limit"
 
 export const runtime = "nodejs"
@@ -79,7 +79,7 @@ async function handler(request: NextRequest) {
     }
 
     const savedImage = existing?.raw_image_url
-      ? { url: existing.raw_image_url }
+      ? { name: null, url: existing.raw_image_url }
       : await saveImage(bytes, image.type)
     const values = {
       image_hash: hash,
@@ -118,9 +118,15 @@ async function handler(request: NextRequest) {
         validation_warnings: validation.warnings,
       },
     }
-    const result = existing
-      ? await analysisService.replaceAnalysisResult(existing.id, values)
-      : await analysisService.createAnalysisResult(values)
+    let result
+    try {
+      result = existing
+        ? await analysisService.replaceAnalysisResult(existing.id, values)
+        : await analysisService.createAnalysisResult(values)
+    } catch (error) {
+      if (savedImage.name) await deleteImage(savedImage.name)
+      throw error
+    }
 
     return successResponse({
       analysisId: result.id,

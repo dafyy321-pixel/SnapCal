@@ -1,7 +1,7 @@
 import "server-only"
 
 import { createHash, randomUUID } from "node:crypto"
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { NotFoundError, ValidationError } from "./error-handler"
 
@@ -47,5 +47,14 @@ export async function loadImage(name: string): Promise<{ data: Buffer; contentTy
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") throw new NotFoundError("图片不存在")
     throw error
+  }
+}
+
+export async function deleteImage(name: string): Promise<void> {
+  if (!/^[0-9a-f-]{36}\.(jpg|png|webp|gif)$/.test(name)) return
+  try {
+    await unlink(join(uploadsDirectory(), name))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
   }
 }
