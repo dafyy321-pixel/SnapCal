@@ -66,6 +66,7 @@ export async function analyzeFoodWithDoubao(imageBase64: string) {
     // 调用豆包 API
     const response = await fetch(DOUBAO_CONFIG.apiUrl, {
       method: 'POST',
+      signal: AbortSignal.timeout(30_000),
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${DOUBAO_CONFIG.apiKey}`,
