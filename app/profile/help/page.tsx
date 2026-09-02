@@ -7,7 +7,7 @@ import { BottomNav } from "@/components/bottom-nav"
 import { Card } from "@/components/ui/card"
 
 const questions = [
-  ["数据保存在哪里？", "餐食、资料和分析结果保存在项目 data/snapcal.db 中，图片保存在 data/uploads 中。这些数据不会同步到 Supabase。"],
+  ["数据保存在哪里？", "餐食、资料和分析结果保存在项目 data/snapcal.db 中，图片保存在 data/uploads 中。"],
   ["为什么不需要登录？", "当前版本是本地单用户应用，已移除登录和注册。能访问这台电脑的人都能查看本地数据。"],
   ["AI 分析需要网络吗？", "配置 DOUBAO_API_KEY 时会请求豆包 API；未配置时自动使用本地演示结果，便于开发和测试。"],
   ["如何备份？", "可在个人中心的“数据导出”下载 JSON 或 CSV。完整迁移时，请同时备份 data 目录。"],
