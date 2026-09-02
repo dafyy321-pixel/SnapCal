@@ -196,8 +196,8 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
     setHasError(true)
     setError(new Error(errorMessage))
 
-    // 如果没有重试过，自动重试
-    if (retryCount === 0) {
+    // 先重试原图，再自动切换到备用图
+    if (retryCount < 2 && fallbackSrc) {
       setTimeout(handleRetry, 1000)
     }
   }
@@ -297,7 +297,7 @@ export const FoodImage: React.FC<FoodImageProps> = ({
     <OptimizedImage
       {...props}
       className={cn('rounded-lg', className)}
-      fallbackSrc="/food-placeholder.svg"
+      fallbackSrc="/placeholder.svg"
       errorComponent={foodErrorComponent}
       placeholder="empty"
       showLoadingState={true}
@@ -340,7 +340,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       width={size}
       height={size}
       className={cn('rounded-full object-cover', className)}
-      fallbackSrc={`/avatar-placeholder-${size}.png`}
+      fallbackSrc="/placeholder-user.jpg"
       errorComponent={avatarErrorComponent}
       placeholder="empty"
       showLoadingState={true}
