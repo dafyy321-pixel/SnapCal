@@ -4,7 +4,7 @@ type ApiEnvelope<T> = {
   error?: { message?: string; code?: string }
 }
 
-async function requestData<T>(url: string, init?: RequestInit): Promise<T> {
+export async function requestData<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init)
   let body: ApiEnvelope<T>
   try {
