@@ -213,7 +213,7 @@ export const wellnessDb = {
     return (getDatabase().prepare("SELECT * FROM daily_checkins WHERE checkin_date = ?").get(date) as DailyCheckinRecord | undefined) || null
   },
 
-  upsertCheckin(date: string, input: Omit<DailyCheckinRecord, "checkin_date" | "created_at" | "updated_at">) {
+  upsertCheckin(date: string, input: Pick<DailyCheckinRecord, "energy" | "hunger" | "soreness"> & Partial<Pick<DailyCheckinRecord, "sleep_hours" | "sleep_quality" | "notes">>) {
     const timestamp = now()
     getDatabase().prepare(`INSERT INTO daily_checkins
       (checkin_date, energy, hunger, soreness, sleep_hours, sleep_quality, notes, created_at, updated_at)
@@ -236,7 +236,7 @@ export const wellnessDb = {
     return (getDatabase().prepare("SELECT * FROM body_metrics WHERE metric_date = ?").get(date) as BodyMetricRecord | undefined) || null
   },
 
-  upsertBodyMetric(date: string, input: Omit<BodyMetricRecord, "metric_date" | "created_at" | "updated_at">) {
+  upsertBodyMetric(date: string, input: Partial<Pick<BodyMetricRecord, "weight_kg" | "waist_cm" | "body_fat_percent" | "notes">>) {
     const timestamp = now()
     getDatabase().prepare(`INSERT INTO body_metrics
       (metric_date, weight_kg, waist_cm, body_fat_percent, notes, created_at, updated_at)

@@ -1,9 +1,11 @@
 import { z } from "zod"
 import { dateSchema, timeSchema } from "./validation-schemas"
+import type { CheckinScore } from "./wellness-types"
 
 export const workoutTypeSchema = z.enum(["strength", "cardio", "mobility", "sports", "other"])
 export const workoutStatusSchema = z.enum(["planned", "in_progress", "completed", "skipped"])
 const nullableNumber = (max: number) => z.coerce.number().finite().nonnegative().max(max).nullable().optional()
+const checkinScoreSchema = z.coerce.number().int().min(1).max(5).transform(value => value as CheckinScore)
 
 export const workoutSetSchema = z.object({
   set_index: z.coerce.number().int().min(0).max(200),
@@ -39,12 +41,22 @@ export const workoutInputSchema = z.object({
   template_id: z.string().uuid().nullable().optional(),
   duration_minutes: nullableNumber(1440),
   perceived_effort: z.coerce.number().min(1).max(10).nullable().optional(),
-  energy_after: z.coerce.number().int().min(1).max(5).nullable().optional(),
+  energy_after: checkinScoreSchema.nullable().optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
   exercises: z.array(workoutExerciseSchema).max(100).default([]),
 }).strict()
 
 export const workoutPatchSchema = workoutInputSchema.partial().strict()
+
+export const workoutQuerySchema = z.object({
+  date: dateSchema.optional(),
+  start_date: dateSchema.optional(),
+  end_date: dateSchema.optional(),
+  status: workoutStatusSchema.optional(),
+  type: workoutTypeSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(1000).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+}).strict()
 
 export const workoutTemplateSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -53,12 +65,24 @@ export const workoutTemplateSchema = z.object({
   exercises: z.array(workoutExerciseSchema).min(1).max(50),
 }).strict()
 
+export const templateCopySchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+}).strict()
+
+export const dateParamSchema = z.object({ date: dateSchema }).strict()
+export const idParamSchema = z.object({ id: z.string().uuid() }).strict()
+
+export const bodyMetricQuerySchema = z.object({
+  start_date: dateSchema.optional(),
+  end_date: dateSchema.optional(),
+}).strict()
+
 export const checkinSchema = z.object({
-  energy: z.coerce.number().int().min(1).max(5),
-  hunger: z.coerce.number().int().min(1).max(5),
-  soreness: z.coerce.number().int().min(1).max(5),
+  energy: checkinScoreSchema,
+  hunger: checkinScoreSchema,
+  soreness: checkinScoreSchema,
   sleep_hours: z.coerce.number().min(0).max(24).nullable().optional(),
-  sleep_quality: z.coerce.number().int().min(1).max(5).nullable().optional(),
+  sleep_quality: checkinScoreSchema.nullable().optional(),
   notes: z.string().trim().max(500).nullable().optional(),
 }).strict()
 
