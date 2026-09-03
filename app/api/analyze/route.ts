@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server"
 import { z } from "zod"
-import { DOUBAO_CONFIG, validateAndProcessFoodData, type ValidatedFoodAnalysis } from "@/lib/ai-config"
+import { getAiConfig, validateAndProcessFoodData, type ValidatedFoodAnalysis } from "@/lib/ai-config"
 import { analysisService, formatAnalysis } from "@/lib/analysis-service"
-import { canReuseAnalysis, shouldUseMockAnalysis } from "@/lib/analysis-mode"
+import { canReuseAnalysis } from "@/lib/analysis-mode"
 import { parseInput } from "@/lib/api-validation"
-import { analyzeFoodWithDoubao } from "@/lib/doubao-service"
+import { analyzeFoodWithOpenAI } from "@/lib/doubao-service"
 import { AppError, errorResponse, successResponse, ValidationError } from "@/lib/error-handler"
 import { DEFAULT_IMAGE_VALIDATION, generateSafeFilename, validateFile } from "@/lib/file-security"
 import { deleteImage, imageHash, imageNameFromUrl, saveImage } from "@/lib/local-images"
@@ -58,8 +58,11 @@ async function handler(request: NextRequest) {
     }
     const bytes = new Uint8Array(validation.sanitizedContent || await image.arrayBuffer())
     const hash = imageHash(bytes)
-    const shouldUseMock = shouldUseMockAnalysis(query.use_mock)
-    const modelVersion = shouldUseMock ? "local-mock-v1" : DOUBAO_CONFIG.model
+    const shouldUseMock = process.env.USE_MOCK_ANALYSIS === "true" || (process.env.NODE_ENV !== "production" && query.use_mock === true)
+    const aiConfig = getAiConfig()
+    if (!shouldUseMock && !aiConfig.configured) throw new AppError("AI 服务尚未配置", 503, "AI_NOT_CONFIGURED")
+    if (!shouldUseMock && !localDb.getProfile().ai_consent_at) throw new AppError("请先同意 AI 数据发送说明", 403, "AI_CONSENT_REQUIRED")
+    const modelVersion = shouldUseMock ? "local-mock-v1" : aiConfig.visionModel
     const existing = await analysisService.findByHash(hash)
     if (existing && canReuseAnalysis(existing, query.force_reanalyze, modelVersion)) {
       return successResponse({
@@ -77,7 +80,7 @@ async function handler(request: NextRequest) {
       rawResponse = { mock: true, data: analyzed }
     } else {
       const base64Url = `data:${image.type};base64,${Buffer.from(bytes).toString("base64")}`
-      const response = await analyzeFoodWithDoubao(base64Url)
+      const response = await analyzeFoodWithOpenAI(base64Url)
       if (!response.success || !response.data) {
         throw new AppError(response.error || "AI 分析失败", 502, "AI_ANALYSIS_ERROR")
       }

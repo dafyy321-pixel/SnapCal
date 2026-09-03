@@ -55,6 +55,12 @@ export const userProfileSchema = z.object({
   daily_protein_goal: positiveIntSchema.max(1000).optional(),
   daily_carbs_goal: positiveIntSchema.max(1000).optional(),
   daily_fats_goal: positiveIntSchema.max(1000).optional(),
+  training_days_goal: z.coerce.number().int().min(1).max(7).optional(),
+  training_experience: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+  available_equipment: z.array(z.string().trim().min(1).max(50)).max(30).optional(),
+  dietary_preferences: z.array(z.string().trim().min(1).max(50)).max(30).optional(),
+  allergies: z.array(z.string().trim().min(1).max(50)).max(30).optional(),
+  ai_consent_at: z.string().datetime().nullable().optional(),
 }).strict()
 
 /**

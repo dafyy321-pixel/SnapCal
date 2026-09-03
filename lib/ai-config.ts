@@ -1,10 +1,32 @@
 import { z } from "zod"
 
-// 豆包 API 配置
-export const DOUBAO_CONFIG = {
-  apiUrl: 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
-  apiKey: process.env.DOUBAO_API_KEY, // 在 Vercel 或本地 .env 设置
-  model: 'doubao-seed-1-6-flash-250828',
+const LEGACY_MODEL = "doubao-seed-1-6-flash-250828"
+const LEGACY_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
+
+function timeout(value: string | undefined) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? Math.min(120_000, Math.max(1_000, parsed)) : 30_000
+}
+
+export function getAiConfig(env: Readonly<Record<string, string | undefined>> = process.env) {
+  const genericKey = env.OPENAI_API_KEY?.trim()
+  const legacyKey = env.DOUBAO_API_KEY?.trim()
+  const usingLegacy = !genericKey && Boolean(legacyKey)
+  const apiKey = genericKey || legacyKey || ""
+  const baseUrl = (usingLegacy ? LEGACY_BASE_URL : env.OPENAI_API_BASE_URL?.trim() || "https://api.openai.com/v1").replace(/\/+$/, "")
+  const baseModel = usingLegacy ? LEGACY_MODEL : env.OPENAI_MODEL?.trim() || ""
+  const visionModel = env.OPENAI_VISION_MODEL?.trim() || baseModel
+  const textModel = env.OPENAI_TEXT_MODEL?.trim() || baseModel
+  return {
+    configured: Boolean(apiKey && (visionModel || textModel)),
+    provider: usingLegacy ? "doubao" as const : "openai-compatible" as const,
+    apiKey,
+    baseUrl,
+    endpoint: `${baseUrl}/chat/completions`,
+    visionModel,
+    textModel,
+    timeoutMs: timeout(env.AI_REQUEST_TIMEOUT_MS),
+  }
 }
 
 // AI 食物分析提示词
@@ -137,7 +159,7 @@ export const FOOD_ANALYSIS_PROMPT = `你是一位专业的营养学家和食物�
 **只输出 JSON 对象，不要包含任何其他内容。**`
 
 const nutritionValue = z.number().finite().nonnegative().max(100000)
-const foodAnalysisResultSchema = z.object({
+export const foodAnalysisResultSchema = z.object({
   name: z.string().trim().min(1).max(100),
   confidence: z.number().finite().min(0).max(100),
   description: z.string().trim().max(200).optional(),
