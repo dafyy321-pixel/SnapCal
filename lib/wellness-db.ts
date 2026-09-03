@@ -2,7 +2,6 @@ import { randomUUID, createHash } from "node:crypto"
 import type { SQLInputValue } from "node:sqlite"
 import { getDatabase } from "./local-db"
 import type {
-  ActionCandidate,
   ActionCardRecord,
   BodyMetricRecord,
   DailyCheckinRecord,
@@ -343,14 +342,15 @@ export const wellnessDb = {
     return (getDatabase().prepare("SELECT * FROM weekly_experiments ORDER BY start_date DESC").all() as Record<string, unknown>[]).map(normalizeExperiment)
   },
 
-  updateExperiment(id: string, updates: { status: WeeklyExperimentRecord["status"]; instruction?: string }) {
+  updateExperiment(id: string, updates: { status: WeeklyExperimentRecord["status"]; instruction?: string; result_snapshot?: Record<string, unknown> }) {
     const current = this.getExperiment(id)
     if (!current) return null
     if (updates.status === "active") {
       getDatabase().prepare("UPDATE weekly_experiments SET status = 'cancelled', updated_at = ? WHERE status = 'active' AND id <> ?").run(now(), id)
     }
-    getDatabase().prepare("UPDATE weekly_experiments SET status = ?, instruction = ?, accepted_at = ?, updated_at = ? WHERE id = ?")
-      .run(updates.status, updates.instruction ?? current.instruction, updates.status === "active" ? now() : current.accepted_at, now(), id)
+    getDatabase().prepare("UPDATE weekly_experiments SET status = ?, instruction = ?, result_snapshot = ?, accepted_at = ?, updated_at = ? WHERE id = ?")
+      .run(updates.status, updates.instruction ?? current.instruction, JSON.stringify(updates.result_snapshot ?? current.result_snapshot),
+        updates.status === "active" ? now() : current.accepted_at, now(), id)
     return this.getExperiment(id)
   },
 
