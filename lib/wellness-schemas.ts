@@ -110,9 +110,20 @@ export const foodAssistConfirmSchema = z.object({
     id: z.string().min(1).max(100),
     name: z.string().trim().min(1).max(100),
     confidence: z.coerce.number().min(0).max(100),
-    portion_hint: z.string().trim().max(100).nullable().optional(),
+    portion_hint: z.string().trim().max(100).nullable().default(null),
     nutrition_known: z.boolean(),
   }).strict()).min(1).max(20),
+}).strict()
+
+export const foodAssistCreateSchema = z.object({
+  context: z.enum(["pre_workout", "post_workout", "general"]),
+  workout_id: z.string().uuid().nullable().optional(),
+  minutes_until_workout: z.coerce.number().int().min(0).max(1440).nullable().optional(),
+}).strict()
+
+export const mealDraftSchema = z.object({
+  meal_date: dateSchema.optional(),
+  meal_type: z.enum(["breakfast", "lunch", "dinner", "snack"]).optional(),
 }).strict()
 
 export const experimentUpdateSchema = z.object({

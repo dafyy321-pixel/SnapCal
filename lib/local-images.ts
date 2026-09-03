@@ -1,4 +1,4 @@
-import "server-only"
+if (typeof window !== "undefined") throw new Error("local-images 只能在服务端使用")
 
 import { createHash, randomUUID } from "node:crypto"
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises"
