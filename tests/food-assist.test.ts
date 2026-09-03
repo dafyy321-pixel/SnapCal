@@ -26,6 +26,7 @@ test("food action assistant", async t => {
   const create = await import("../app/api/food-assist/route")
   const sessionRoute = await import("../app/api/food-assist/[id]/route")
   const draftRoute = await import("../app/api/food-assist/[id]/meal-draft/route")
+  const mealsRoute = await import("../app/api/meals/route")
   const { closeDatabase, localDb } = await import("../lib/local-db")
   const { deleteImage, imageNameFromUrl } = await import("../lib/local-images")
   let imageUrl: string | null = null
@@ -89,6 +90,19 @@ test("food action assistant", async t => {
       assert.equal(body.data.draft.meal_type, "dinner")
       assert.equal(body.data.draft.requires_nutrition_confirmation, true)
       assert.equal(localDb.listMeals().total, 0)
+    })
+
+    await t.test("links the session only after a confirmed meal is saved", async () => {
+      const mealResponse = await mealsRoute.POST(new NextRequest("http://localhost/api/meals", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ meal_name: "香蕉", meal_type: "snack", meal_date: "2099-09-03", meal_time: "12:00:00", calories: 100, protein: 1, carbs: 25, fats: 0 }),
+      }))
+      const mealId = (await mealResponse.json() as { data: { meal: { id: string } } }).data.meal.id
+      const linked = await sessionRoute.PATCH(jsonRequest({ status: "saved", meal_id: mealId }), { params: Promise.resolve({ id: sessionId }) })
+      const body = await linked.json() as { data: { session: { status: string; meal_id: string } } }
+      assert.equal(body.data.session.status, "saved")
+      assert.equal(body.data.session.meal_id, mealId)
     })
   } finally {
     if (imageUrl) {

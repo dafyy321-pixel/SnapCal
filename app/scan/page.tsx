@@ -2,14 +2,16 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { Suspense, useState, useRef } from "react"
 import { Camera, X, ImageIcon, Sparkles, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { OptimizedImage } from "@/components/optimized-image"
 
-export default function ScanPage() {
+function ScanContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const inventoryMode = searchParams.get("mode") === "inventory"
   const [image, setImage] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -44,25 +46,25 @@ export default function ScanPage() {
       // Create FormData and upload
       const formData = new FormData()
       formData.append("image", selectedFile)
+      if (inventoryMode) {
+        formData.append("context", searchParams.get("context") || "general")
+        const workoutId = searchParams.get("workout_id")
+        const minutes = searchParams.get("minutes_until_workout")
+        if (workoutId) formData.append("workout_id", workoutId)
+        if (minutes) formData.append("minutes_until_workout", minutes)
+      }
 
-      // 调用本地分析 API
-      const analyzeResponse = await fetch("/api/analyze", {
+      const analyzeResponse = await fetch(inventoryMode ? "/api/food-assist" : "/api/analyze", {
         method: "POST",
         body: formData,
       })
 
-      if (!analyzeResponse.ok) {
-        const errText = await analyzeResponse.text().catch(() => "")
-        console.error("[Scan] /api/analyze failed:", analyzeResponse.status, errText)
-        throw new Error("分析失败，请稍后重试")
-      }
-
-      const result = await analyzeResponse.json()
+      const result = await analyzeResponse.json().catch(() => null)
+      if (!analyzeResponse.ok || !result?.success) throw new Error(result?.error?.message || "分析失败，请稍后重试")
       if (result.success) {
-        // 使用分析ID跳转到分析页面（注意：successResponse 会把 payload 放在 data 里）
-        const analysisId = result.data?.analysisId || result.data?.id
+        const analysisId = inventoryMode ? result.data?.session?.id : result.data?.analysisId || result.data?.id
         if (analysisId) {
-          router.push(`/analysis?id=${analysisId}`)
+          router.push(inventoryMode ? `/food-assist/${analysisId}` : `/analysis?id=${analysisId}`)
         } else {
           console.error('[Scan] Missing analysisId in /api/analyze response:', result)
           setError('分析结果返回异常，请重试')
@@ -94,7 +96,7 @@ export default function ScanPage() {
       <div className="w-full h-[100dvh] max-w-md bg-background flex flex-col md:h-[95vh] md:rounded-lg md:shadow-2xl overflow-hidden relative">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border safe-padding-top md:safe-padding-top-0">
-          <h1 className="text-xl font-bold">扫描食物</h1>
+          <h1 className="text-xl font-bold">{inventoryMode ? "看看怎么搭配" : "扫描食物"}</h1>
           <Button
             variant="ghost"
             size="icon"
@@ -131,7 +133,7 @@ export default function ScanPage() {
               </div>
               <div className="text-center space-y-2">
                 <h2 className="text-xl font-semibold text-white">准备扫描</h2>
-                <p className="text-sm text-muted-foreground">拍照或上传图片以分析食物营养</p>
+                <p className="text-sm text-muted-foreground">{inventoryMode ? "拍下现有食物，识别后由你确认" : "拍照或上传图片以分析食物营养"}</p>
               </div>
             </div>
           )}
@@ -180,6 +182,10 @@ export default function ScanPage() {
 
         {/* Controls */}
         <div className="flex-shrink-0 p-6 space-y-4 bg-background safe-padding-bottom md:safe-padding-bottom-0">
+          <div className="grid grid-cols-2 rounded-lg bg-muted p-1" aria-label="扫描模式">
+            <button type="button" aria-pressed={!inventoryMode} className={`rounded-md px-3 py-2 text-sm ${!inventoryMode ? "bg-background shadow-sm" : "text-muted-foreground"}`} onClick={() => router.replace("/scan")}>记录一餐</button>
+            <button type="button" aria-pressed={inventoryMode} className={`rounded-md px-3 py-2 text-sm ${inventoryMode ? "bg-background shadow-sm" : "text-muted-foreground"}`} onClick={() => router.replace("/scan?mode=inventory&context=general")}>看看怎么搭配</button>
+          </div>
           {!image && !isAnalyzing && (
             <div className="flex gap-3">
               <Button
@@ -230,7 +236,7 @@ export default function ScanPage() {
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5 mr-2" />
-                    AI 分析
+                    {inventoryMode ? "识别食材" : "AI 分析"}
                   </>
                 )}
               </Button>
@@ -258,4 +264,8 @@ export default function ScanPage() {
       </div>
     </div>
   )
+}
+
+export default function ScanPage() {
+  return <Suspense fallback={<div className="grid min-h-screen place-items-center">加载中…</div>}><ScanContent /></Suspense>
 }

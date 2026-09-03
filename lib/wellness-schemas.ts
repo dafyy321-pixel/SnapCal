@@ -115,6 +115,11 @@ export const foodAssistConfirmSchema = z.object({
   }).strict()).min(1).max(20),
 }).strict()
 
+export const foodAssistSaveSchema = z.object({
+  status: z.literal("saved"),
+  meal_id: z.string().uuid(),
+}).strict()
+
 export const foodAssistCreateSchema = z.object({
   context: z.enum(["pre_workout", "post_workout", "general"]),
   workout_id: z.string().uuid().nullable().optional(),
