@@ -49,6 +49,12 @@ export type ProfileRecord = {
   daily_protein_goal: number
   daily_carbs_goal: number
   daily_fats_goal: number
+  training_days_goal: number
+  training_experience: "beginner" | "intermediate" | "advanced"
+  available_equipment: string[]
+  dietary_preferences: string[]
+  allergies: string[]
+  ai_consent_at: string | null
   created_at: string
   updated_at: string
 }
@@ -158,6 +164,11 @@ function initializeDatabase(database: DatabaseSync): void {
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
     PRAGMA busy_timeout = 5000;
+  `)
+
+  database.exec("BEGIN IMMEDIATE")
+  try {
+    database.exec(`
 
     CREATE TABLE IF NOT EXISTS user_profiles (
       id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -175,6 +186,12 @@ function initializeDatabase(database: DatabaseSync): void {
       daily_protein_goal REAL NOT NULL DEFAULT 50,
       daily_carbs_goal REAL NOT NULL DEFAULT 250,
       daily_fats_goal REAL NOT NULL DEFAULT 65,
+      training_days_goal INTEGER NOT NULL DEFAULT 3 CHECK (training_days_goal BETWEEN 1 AND 7),
+      training_experience TEXT NOT NULL DEFAULT 'beginner' CHECK (training_experience IN ('beginner', 'intermediate', 'advanced')),
+      available_equipment TEXT NOT NULL DEFAULT '[]',
+      dietary_preferences TEXT NOT NULL DEFAULT '[]',
+      allergies TEXT NOT NULL DEFAULT '[]',
+      ai_consent_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -265,7 +282,161 @@ function initializeDatabase(database: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_user_meals_date ON user_meals(meal_date, meal_time DESC);
     CREATE INDEX IF NOT EXISTS idx_user_meals_type ON user_meals(meal_type);
     CREATE INDEX IF NOT EXISTS idx_analysis_created ON meal_analysis_results(created_at DESC);
-  `)
+
+    CREATE TABLE IF NOT EXISTS workout_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      workout_type TEXT NOT NULL CHECK (workout_type IN ('strength', 'cardio', 'mobility', 'sports', 'other')),
+      description TEXT NOT NULL DEFAULT '',
+      exercises_json TEXT NOT NULL DEFAULT '[]',
+      is_builtin INTEGER NOT NULL DEFAULT 0 CHECK (is_builtin IN (0, 1)),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS workout_sessions (
+      id TEXT PRIMARY KEY,
+      session_date TEXT NOT NULL,
+      session_time TEXT NOT NULL,
+      title TEXT NOT NULL,
+      workout_type TEXT NOT NULL CHECK (workout_type IN ('strength', 'cardio', 'mobility', 'sports', 'other')),
+      status TEXT NOT NULL CHECK (status IN ('planned', 'in_progress', 'completed', 'skipped')),
+      source TEXT NOT NULL CHECK (source IN ('manual', 'template', 'action')),
+      template_id TEXT REFERENCES workout_templates(id) ON DELETE SET NULL,
+      duration_minutes REAL,
+      perceived_effort REAL,
+      energy_after INTEGER,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS workout_exercises (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE,
+      order_index INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL CHECK (category IN ('strength', 'cardio', 'mobility', 'sports', 'other')),
+      muscle_group TEXT,
+      notes TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS workout_sets (
+      id TEXT PRIMARY KEY,
+      exercise_id TEXT NOT NULL REFERENCES workout_exercises(id) ON DELETE CASCADE,
+      set_index INTEGER NOT NULL,
+      set_type TEXT NOT NULL CHECK (set_type IN ('warmup', 'working', 'drop', 'failure')),
+      reps REAL,
+      weight_kg REAL,
+      duration_seconds REAL,
+      distance_meters REAL,
+      rpe REAL,
+      completed INTEGER NOT NULL DEFAULT 1 CHECK (completed IN (0, 1))
+    );
+
+    CREATE TABLE IF NOT EXISTS daily_checkins (
+      checkin_date TEXT PRIMARY KEY,
+      energy INTEGER NOT NULL CHECK (energy BETWEEN 1 AND 5),
+      hunger INTEGER NOT NULL CHECK (hunger BETWEEN 1 AND 5),
+      soreness INTEGER NOT NULL CHECK (soreness BETWEEN 1 AND 5),
+      sleep_hours REAL,
+      sleep_quality INTEGER,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS body_metrics (
+      metric_date TEXT PRIMARY KEY,
+      weight_kg REAL,
+      waist_cm REAL,
+      body_fat_percent REAL,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      CHECK (weight_kg IS NOT NULL OR waist_cm IS NOT NULL OR body_fat_percent IS NOT NULL)
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_runs (
+      id TEXT PRIMARY KEY,
+      task_type TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('completed', 'failed')),
+      duration_ms INTEGER NOT NULL,
+      input_hash TEXT NOT NULL,
+      error_code TEXT,
+      prompt_version TEXT NOT NULL,
+      prompt_tokens INTEGER,
+      completion_tokens INTEGER,
+      total_tokens INTEGER,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS action_cards (
+      id TEXT PRIMARY KEY,
+      candidate_id TEXT NOT NULL,
+      card_date TEXT NOT NULL,
+      kind TEXT NOT NULL CHECK (kind IN ('fuel', 'workout', 'recovery', 'logging', 'reflection')),
+      title TEXT NOT NULL,
+      action_text TEXT NOT NULL,
+      rationale TEXT NOT NULL,
+      confidence TEXT NOT NULL CHECK (confidence IN ('low', 'medium', 'high')),
+      source TEXT NOT NULL CHECK (source IN ('rules', 'ai_enhanced')),
+      valid_until TEXT NOT NULL,
+      input_snapshot TEXT NOT NULL DEFAULT '{}',
+      candidate_snapshot TEXT NOT NULL DEFAULT '[]',
+      status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'dismissed', 'replaced', 'expired')),
+      response_reason TEXT,
+      ai_run_id TEXT REFERENCES ai_runs(id) ON DELETE SET NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS food_assist_sessions (
+      id TEXT PRIMARY KEY,
+      context TEXT NOT NULL CHECK (context IN ('pre_workout', 'post_workout', 'general')),
+      workout_id TEXT REFERENCES workout_sessions(id) ON DELETE SET NULL,
+      minutes_until_workout INTEGER,
+      image_url TEXT NOT NULL,
+      recognized_items TEXT NOT NULL DEFAULT '[]',
+      confirmed_items TEXT NOT NULL DEFAULT '[]',
+      primary_suggestion TEXT,
+      alternative_suggestion TEXT,
+      status TEXT NOT NULL CHECK (status IN ('recognized', 'confirmed', 'suggested', 'saved')),
+      meal_id TEXT REFERENCES user_meals(id) ON DELETE SET NULL,
+      ai_run_id TEXT REFERENCES ai_runs(id) ON DELETE SET NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS weekly_experiments (
+      id TEXT PRIMARY KEY,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      title TEXT NOT NULL,
+      variable_key TEXT NOT NULL,
+      instruction TEXT NOT NULL,
+      hypothesis TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('proposed', 'active', 'completed', 'skipped', 'cancelled')),
+      baseline_snapshot TEXT NOT NULL DEFAULT '{}',
+      result_snapshot TEXT NOT NULL DEFAULT '{}',
+      accepted_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_workout_sessions_date ON workout_sessions(session_date, session_time DESC);
+    CREATE INDEX IF NOT EXISTS idx_workout_sessions_status ON workout_sessions(status, session_date);
+    CREATE INDEX IF NOT EXISTS idx_workout_exercises_session ON workout_exercises(session_id, order_index);
+    CREATE INDEX IF NOT EXISTS idx_workout_sets_exercise ON workout_sets(exercise_id, set_index);
+    CREATE INDEX IF NOT EXISTS idx_body_metrics_date ON body_metrics(metric_date DESC);
+    CREATE INDEX IF NOT EXISTS idx_action_cards_date ON action_cards(card_date, status);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_action_cards_one_active ON action_cards(card_date) WHERE status = 'active';
+    CREATE INDEX IF NOT EXISTS idx_food_assist_created ON food_assist_sessions(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ai_runs_created ON ai_runs(created_at DESC, task_type);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_experiments_one_active ON weekly_experiments(status) WHERE status = 'active';
+    `)
 
   const profileColumns = new Set(
     (database.prepare("PRAGMA table_info(user_profiles)").all() as Array<{ name: string }>).map(column => column.name)
@@ -279,6 +450,12 @@ function initializeDatabase(database: DatabaseSync): void {
     ["weekly_goal", "ALTER TABLE user_profiles ADD COLUMN weekly_goal REAL NOT NULL DEFAULT 0.5"],
     ["activity_level", "ALTER TABLE user_profiles ADD COLUMN activity_level TEXT NOT NULL DEFAULT 'moderate'"],
     ["weight_goal", "ALTER TABLE user_profiles ADD COLUMN weight_goal TEXT NOT NULL DEFAULT 'maintain'"],
+    ["training_days_goal", "ALTER TABLE user_profiles ADD COLUMN training_days_goal INTEGER NOT NULL DEFAULT 3"],
+    ["training_experience", "ALTER TABLE user_profiles ADD COLUMN training_experience TEXT NOT NULL DEFAULT 'beginner'"],
+    ["available_equipment", "ALTER TABLE user_profiles ADD COLUMN available_equipment TEXT NOT NULL DEFAULT '[]'"],
+    ["dietary_preferences", "ALTER TABLE user_profiles ADD COLUMN dietary_preferences TEXT NOT NULL DEFAULT '[]'"],
+    ["allergies", "ALTER TABLE user_profiles ADD COLUMN allergies TEXT NOT NULL DEFAULT '[]'"],
+    ["ai_consent_at", "ALTER TABLE user_profiles ADD COLUMN ai_consent_at TEXT"],
   ] as const
   for (const [column, sql] of profileMigrations) {
     if (!profileColumns.has(column)) database.exec(sql)
@@ -291,6 +468,29 @@ function initializeDatabase(database: DatabaseSync): void {
       daily_carbs_goal, daily_fats_goal, created_at, updated_at
     ) VALUES (1, '本地用户', 1800, 50, 250, 65, ?, ?)
   `).run(now, now)
+
+    const builtins = [
+      ["10000000-0000-4000-8000-000000000001", "居家全身基础", "strength", "无需器械的全身训练", [{ name: "自重深蹲", category: "strength", muscle_group: "下肢", sets: 3, reps: 10 }, { name: "斜板俯卧撑", category: "strength", muscle_group: "胸部", sets: 3, reps: 8 }, { name: "臀桥", category: "strength", muscle_group: "臀腿", sets: 3, reps: 12 }, { name: "死虫", category: "strength", muscle_group: "核心", sets: 3, reps: 8 }]],
+      ["10000000-0000-4000-8000-000000000002", "健身房全身基础", "strength", "器械和自由重量全身训练", [{ name: "高脚杯深蹲", category: "strength", muscle_group: "下肢", sets: 3, reps: 10 }, { name: "器械推胸", category: "strength", muscle_group: "胸部", sets: 3, reps: 10 }, { name: "坐姿划船", category: "strength", muscle_group: "背部", sets: 3, reps: 10 }, { name: "罗马尼亚硬拉", category: "strength", muscle_group: "臀腿", sets: 3, reps: 8 }]],
+      ["10000000-0000-4000-8000-000000000003", "上肢基础", "strength", "上肢推拉基础组合", [{ name: "器械推胸", category: "strength", muscle_group: "胸部", sets: 3, reps: 10 }, { name: "高位下拉", category: "strength", muscle_group: "背部", sets: 3, reps: 10 }, { name: "哑铃肩推", category: "strength", muscle_group: "肩部", sets: 3, reps: 10 }, { name: "坐姿划船", category: "strength", muscle_group: "背部", sets: 3, reps: 10 }]],
+      ["10000000-0000-4000-8000-000000000004", "下肢基础", "strength", "下肢基础力量训练", [{ name: "腿举", category: "strength", muscle_group: "下肢", sets: 3, reps: 10 }, { name: "罗马尼亚硬拉", category: "strength", muscle_group: "臀腿", sets: 3, reps: 8 }, { name: "反向箭步蹲", category: "strength", muscle_group: "下肢", sets: 3, reps: 8 }, { name: "站姿提踵", category: "strength", muscle_group: "小腿", sets: 3, reps: 12 }]],
+      ["10000000-0000-4000-8000-000000000005", "20 分钟稳定有氧", "cardio", "自行车、跑步机或椭圆机", [{ name: "稳定有氧", category: "cardio", muscle_group: null, sets: 1, duration_seconds: 1200 }]],
+      ["10000000-0000-4000-8000-000000000006", "10 分钟活动与拉伸", "mobility", "适合低精力或酸痛时的轻量活动", [{ name: "全身动态热身", category: "mobility", muscle_group: null, sets: 1, duration_seconds: 300 }, { name: "轻柔拉伸", category: "mobility", muscle_group: null, sets: 1, duration_seconds: 300 }]],
+    ] as const
+    const insertTemplate = database.prepare(`
+      INSERT OR IGNORE INTO workout_templates
+        (id, name, workout_type, description, exercises_json, is_builtin, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+    `)
+    for (const [id, name, type, description, exercises] of builtins) {
+      insertTemplate.run(id, name, type, description, JSON.stringify(exercises), now, now)
+    }
+
+    database.exec("PRAGMA user_version = 1; COMMIT")
+  } catch (error) {
+    database.exec("ROLLBACK")
+    throw error
+  }
 }
 
 export function getDatabase(): DatabaseSync {
@@ -314,6 +514,15 @@ function normalizeMeal(row: Record<string, unknown>): MealRecord {
     ...row,
     ingredients: jsonParse<string[]>(row.ingredients, []),
   } as MealRecord
+}
+
+function normalizeProfile(row: Record<string, unknown>): ProfileRecord {
+  return {
+    ...row,
+    available_equipment: jsonParse<string[]>(row.available_equipment, []),
+    dietary_preferences: jsonParse<string[]>(row.dietary_preferences, []),
+    allergies: jsonParse<string[]>(row.allergies, []),
+  } as ProfileRecord
 }
 
 function normalizeAnalysis(row: Record<string, unknown>): AnalysisRecord {
@@ -367,7 +576,7 @@ function buildAnalysisRecord(input: AnalysisInput, id: string = randomUUID(), me
 
 export const localDb = {
   getProfile(): ProfileRecord {
-    return getDatabase().prepare("SELECT * FROM user_profiles WHERE id = 1").get() as ProfileRecord
+    return normalizeProfile(getDatabase().prepare("SELECT * FROM user_profiles WHERE id = 1").get() as Record<string, unknown>)
   },
 
   updateProfile(updates: Partial<Omit<ProfileRecord, "id" | "created_at" | "updated_at">>): ProfileRecord {
@@ -375,8 +584,13 @@ export const localDb = {
       "username", "avatar_url", "birthday", "gender", "height", "weight",
       "target_weight", "weekly_goal", "activity_level", "weight_goal",
       "daily_calorie_goal", "daily_protein_goal", "daily_carbs_goal", "daily_fats_goal",
+      "training_days_goal", "training_experience", "available_equipment", "dietary_preferences",
+      "allergies", "ai_consent_at",
     ])
-    const entries = Object.entries(updates).filter(([key, value]) => allowed.has(key) && value !== undefined)
+    const jsonFields = new Set(["available_equipment", "dietary_preferences", "allergies"])
+    const entries = Object.entries(updates)
+      .filter(([key, value]) => allowed.has(key) && value !== undefined)
+      .map(([key, value]) => [key, jsonFields.has(key) ? jsonValue(value) : value] as const)
     if (entries.length > 0) {
       const setClause = entries.map(([key]) => `${key} = ?`).join(", ")
       const values = entries.map(([, value]) => value) as SQLInputValue[]
