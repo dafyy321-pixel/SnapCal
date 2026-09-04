@@ -37,12 +37,18 @@ export default function MealDetailPage() {
 
   const [meal, setMeal] = useState<Meal | null>(null)
   const [loading, setLoading] = useState(true)
+  const [missing, setMissing] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const loadMealDetail = async () => {
       try {
         const response = await fetch(`/api/meals/${mealId}`)
+
+        if (response.status === 404) {
+          setMissing(true)
+          return
+        }
 
         if (!response.ok) {
           throw new Error("获取餐食详情失败")
@@ -99,7 +105,15 @@ export default function MealDetailPage() {
   }
 
   if (!meal) {
-    return null
+    return missing ? (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-sm p-6 text-center space-y-4">
+          <h1 className="text-xl font-bold">餐食记录不存在</h1>
+          <p className="text-sm text-muted-foreground">这条记录可能已被删除，或链接已经失效。</p>
+          <Button onClick={() => router.replace("/")}>返回首页</Button>
+        </Card>
+      </div>
+    ) : null
   }
 
   // 计算三大营养素分布

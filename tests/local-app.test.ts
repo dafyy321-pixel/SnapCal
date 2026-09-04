@@ -192,6 +192,12 @@ test("SnapCal local data regression suite", async t => {
       const layout = readFileSync(join(process.cwd(), "app", "layout.tsx"), "utf8")
       assert.match(layout, /<html lang="zh-CN" suppressHydrationWarning>/)
     })
+
+    await t.test("shows a normal missing state for a stale meal detail URL", () => {
+      const detailPage = readFileSync(join(process.cwd(), "app", "meal", "[id]", "page.tsx"), "utf8")
+      assert.match(detailPage, /response\.status === 404/)
+      assert.match(detailPage, /餐食记录不存在/)
+    })
   } finally {
     closeDatabase()
     rmSync(temporaryDirectory, { recursive: true, force: true })
