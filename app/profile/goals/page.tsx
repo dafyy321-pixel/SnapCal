@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Target, Save, Plus, Minus } from "lucide-react"
+import { ArrowLeft, Dumbbell, Target, Save, Plus, Minus } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,28 @@ import { BottomNav } from "@/components/bottom-nav"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { profileService } from "@/lib/api-services"
+
+type GoalProfile = {
+  height: number
+  daily_calorie_goal: number
+  daily_protein_goal: number
+  daily_carbs_goal: number
+  daily_fats_goal: number
+  weight: number
+  target_weight: number
+  weekly_goal: number
+  activity_level: string
+  weight_goal: string
+  training_days_goal: number
+  training_experience: "beginner" | "intermediate" | "advanced"
+  available_equipment: string[]
+  dietary_preferences: string[]
+  allergies: string[]
+}
+
+function commaList(value: string) {
+  return value.split(/[,，]/).map(item => item.trim()).filter(Boolean)
+}
 
 export default function GoalsPage() {
   const router = useRouter()
@@ -23,6 +45,11 @@ export default function GoalsPage() {
     weeklyGoal: 0.5, // 每周减重目标(kg)
     activityLevel: "moderate", // low, moderate, high
     weightGoal: "lose", // lose, maintain, gain
+    trainingDaysGoal: 3,
+    trainingExperience: "beginner" as GoalProfile["training_experience"],
+    availableEquipment: "",
+    dietaryPreferences: "",
+    allergies: "",
   })
   const [height, setHeight] = useState(170)
   const [error, setError] = useState("")
@@ -30,7 +57,7 @@ export default function GoalsPage() {
   useEffect(() => {
     const loadGoals = async () => {
       try {
-        const profile = await profileService.getProfile<Record<string, unknown>>()
+        const profile = await profileService.getProfile<GoalProfile>()
         setHeight(Number(profile.height) || 170)
         setGoals(previous => ({
           ...previous,
@@ -43,6 +70,11 @@ export default function GoalsPage() {
           weeklyGoal: Number.isFinite(Number(profile.weekly_goal)) ? Number(profile.weekly_goal) : 0.5,
           activityLevel: ["low", "moderate", "high"].includes(String(profile.activity_level)) ? String(profile.activity_level) : "moderate",
           weightGoal: ["lose", "maintain", "gain"].includes(String(profile.weight_goal)) ? String(profile.weight_goal) : "maintain",
+          trainingDaysGoal: profile.training_days_goal || 3,
+          trainingExperience: profile.training_experience || "beginner",
+          availableEquipment: profile.available_equipment.join("、"),
+          dietaryPreferences: profile.dietary_preferences.join("、"),
+          allergies: profile.allergies.join("、"),
         }))
       } catch (error) {
         setError(error instanceof Error ? error.message : "加载失败")
@@ -64,6 +96,11 @@ export default function GoalsPage() {
         weekly_goal: goals.weeklyGoal,
         activity_level: goals.activityLevel,
         weight_goal: goals.weightGoal,
+        training_days_goal: goals.trainingDaysGoal,
+        training_experience: goals.trainingExperience,
+        available_equipment: commaList(goals.availableEquipment),
+        dietary_preferences: commaList(goals.dietaryPreferences),
+        allergies: commaList(goals.allergies),
       })
       router.push("/profile")
     } catch (error) {
@@ -327,6 +364,26 @@ export default function GoalsPage() {
                   <div className="text-xs text-muted-foreground">每天运动或体力工作</div>
                 </div>
               </Button>
+            </div>
+          </Card>
+
+          <Card className="p-6">
+            <h3 className="mb-4 flex items-center text-lg font-semibold"><Dumbbell className="mr-2 size-5 text-primary" />训练与饮食条件</h3>
+            <div className="space-y-5">
+              <div>
+                <div className="mb-2 flex items-center justify-between"><label className="text-sm font-medium">每周训练目标</label><span className="font-semibold text-primary">{goals.trainingDaysGoal} 天</span></div>
+                <Slider aria-label="每周训练目标" value={[goals.trainingDaysGoal]} onValueChange={value => setGoals(previous => ({ ...previous, trainingDaysGoal: value[0] }))} min={1} max={7} step={1} />
+                <div className="mt-1 flex justify-between text-xs text-muted-foreground"><span>1 天</span><span>7 天</span></div>
+              </div>
+              <div>
+                <label htmlFor="training-experience" className="mb-2 block text-sm font-medium">训练经验</label>
+                <select id="training-experience" value={goals.trainingExperience} onChange={event => setGoals(previous => ({ ...previous, trainingExperience: event.target.value as GoalProfile["training_experience"] }))} className="w-full rounded-md border bg-background px-3 py-2">
+                  <option value="beginner">刚开始或规律训练不足一年</option><option value="intermediate">规律训练 1～3 年</option><option value="advanced">规律训练 3 年以上</option>
+                </select>
+              </div>
+              <div><label htmlFor="available-equipment" className="mb-2 block text-sm font-medium">可用器械</label><Input id="available-equipment" value={goals.availableEquipment} onChange={event => setGoals(previous => ({ ...previous, availableEquipment: event.target.value }))} placeholder="例如：哑铃、弹力带、瑜伽垫" /><p className="mt-1 text-xs text-muted-foreground">多项请用逗号分隔</p></div>
+              <div><label htmlFor="dietary-preferences" className="mb-2 block text-sm font-medium">饮食偏好或限制</label><Input id="dietary-preferences" value={goals.dietaryPreferences} onChange={event => setGoals(previous => ({ ...previous, dietaryPreferences: event.target.value }))} placeholder="例如：素食、少乳糖" /></div>
+              <div><label htmlFor="allergies" className="mb-2 block text-sm font-medium">过敏食物</label><Input id="allergies" value={goals.allergies} onChange={event => setGoals(previous => ({ ...previous, allergies: event.target.value }))} placeholder="例如：花生、虾" /></div>
             </div>
           </Card>
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Camera, ChevronRight, Download, HelpCircle, Info, Settings } from "lucide-react"
+import { Bot, Camera, ChevronRight, Download, HelpCircle, Info, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BottomNav } from "@/components/bottom-nav"
@@ -48,6 +48,7 @@ export default function ProfilePage() {
   const items = [
     { icon: Camera, label: "编辑资料", description: "修改姓名和身体数据", route: "/profile/edit" },
     { icon: Settings, label: "目标设置", description: "设置营养与体重目标", route: "/profile/goals" },
+    { icon: Bot, label: "AI 设置", description: "查看接口状态和控制数据发送", route: "/profile/ai" },
     { icon: Download, label: "数据导出", description: "导出本地餐食和资料", route: "/profile/export" },
     { icon: HelpCircle, label: "帮助中心", description: "查看使用说明", route: "/profile/help" },
     { icon: Info, label: "关于 SnapCal", description: "项目和本地数据说明", route: "/profile/about" },
