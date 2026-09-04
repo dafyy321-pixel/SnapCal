@@ -1,7 +1,7 @@
-export function contentSecurityPolicy(): string {
+export function contentSecurityPolicy(nodeEnv = process.env.NODE_ENV): string {
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src 'self' 'unsafe-inline'${nodeEnv === "development" ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",

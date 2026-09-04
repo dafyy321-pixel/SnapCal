@@ -180,10 +180,12 @@ test("SnapCal local data regression suite", async t => {
       assert.equal(canReuseAnalysis({ model_version: "configured-model" }, true, "configured-model"), false)
     })
 
-    await t.test("allows the inline Next.js hydration scripts required by the production HTML", () => {
-      const policy = contentSecurityPolicy()
-      assert.match(policy, /script-src 'self' 'unsafe-inline'/)
-      assert.doesNotMatch(policy, /strict-dynamic|nonce-/)
+    await t.test("allows React development tooling without weakening the production CSP", () => {
+      const developmentPolicy = contentSecurityPolicy("development")
+      const productionPolicy = contentSecurityPolicy("production")
+      assert.match(developmentPolicy, /script-src 'self' 'unsafe-inline' 'unsafe-eval'/)
+      assert.match(productionPolicy, /script-src 'self' 'unsafe-inline'/)
+      assert.doesNotMatch(productionPolicy, /unsafe-eval|strict-dynamic|nonce-/)
     })
   } finally {
     closeDatabase()
