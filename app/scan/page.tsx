@@ -6,6 +6,7 @@ import { Suspense, useState, useRef } from "react"
 import { Camera, X, ImageIcon, Sparkles, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter, useSearchParams } from "next/navigation"
+import Image from "next/image"
 import { OptimizedImage } from "@/components/optimized-image"
 
 function ScanContent() {
@@ -139,17 +140,15 @@ function ScanContent() {
           )}
 
           {image && (
-            <div className="w-full h-full">
-              <OptimizedImage
+            <div className="relative w-full h-full">
+              <Image
                 src={image}
                 alt="Captured food"
-                width={400}
-                height={300}
-                className="w-full h-full object-contain"
+                fill
+                unoptimized
+                sizes="(max-width: 768px) 100vw, 448px"
+                className="object-contain object-center"
                 priority={true}
-                lazy={false}
-                showLoadingState={false}
-                showErrorState={false}
               />
             </div>
           )}
