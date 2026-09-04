@@ -1,588 +1,211 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { TrendingUp, TrendingDown, Minus, Flame, Drumstick, Wheat, Droplet, Calendar, ChevronRight } from "lucide-react"
-import { Card } from "@/components/ui/card"
+import { useCallback, useEffect, useState } from "react"
+import { Activity, BatteryMedium, CalendarDays, Dumbbell, FlaskConical, Ruler, Utensils } from "lucide-react"
 import { BottomNav } from "@/components/bottom-nav"
-import { cn } from "@/lib/utils"
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Area,
-  AreaChart,
-  ReferenceLine,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 
-// 定义数据类型
-interface DailyData {
-  day: string
-  date: string
-  calories: number
-  protein: number
-  carbs: number
-  fats: number
+type Timeframe = "7d" | "30d"
+type ExperimentStatus = "proposed" | "active" | "completed" | "skipped" | "cancelled"
+
+interface Insights {
+  timeframe: Timeframe
+  range: { start_date: string; end_date: string }
+  nutrition: {
+    recorded_days: number
+    meal_count: number
+    daily_average: { calories: number; protein: number; carbs: number; fats: number } | null
+    confidence: "low" | "medium" | "high"
+  }
+  training: {
+    completed_sessions: number
+    total_minutes: number
+    strength_sets: number
+    volume_kg_reps: number
+    cardio_minutes: number
+    cardio_distance_meters: number
+    template_completion_rate: number | null
+    average_effort: number | null
+  }
+  status: {
+    recorded_days: number
+    energy: number | null
+    hunger: number | null
+    soreness: number | null
+    sleep_hours: number | null
+    sleep_quality: number | null
+  }
+  body_metrics: Array<{
+    date: string
+    weight_kg: number | null
+    waist_cm: number | null
+    body_fat_percent: number | null
+  }>
+  observations: string[]
+  completeness: { meal_days: number; completed_workouts: number; checkin_days: number }
 }
 
-interface NutritionStats {
-  avgCalories: number
-  caloriesTrend: number
-  prevCalories: number
-  avgProtein: number
-  proteinTrend: number
-  prevProtein: number
-  avgCarbs: number
-  carbsTrend: number
-  prevCarbs: number
-  avgFats: number
-  fatsTrend: number
-  prevFats: number
+interface Experiment {
+  id: string
+  start_date: string
+  end_date: string
+  title: string
+  instruction: string
+  hypothesis: string
+  status: ExperimentStatus
 }
 
-function trendClass(value: number, positive: string, negative: string) {
-  return value === 0 ? "text-muted-foreground" : value > 0 ? positive : negative
+const confidenceLabels = { low: "数据较少", medium: "数据一般", high: "数据较完整" }
+const statusLabels: Record<ExperimentStatus, string> = {
+  proposed: "待确认",
+  active: "进行中",
+  completed: "已完成",
+  skipped: "已跳过",
+  cancelled: "已取消",
 }
 
-function TrendIcon({ value }: { value: number }) {
-  if (value === 0) return <Minus className="w-3.5 h-3.5" />
-  return value > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />
+function value(value: number | null, suffix = "") {
+  return value == null ? "—" : `${value}${suffix}`
 }
 
-function CustomTooltip({ active, payload, label }: {
-  active?: boolean
-  payload?: Array<{ name: string; value: number; color: string; dataKey?: string }>
-  label?: string
-}) {
-  if (!active || !payload?.length) return null
-  return (
-    <div className="bg-card/95 backdrop-blur-sm border border-border rounded-xl shadow-xl p-3.5">
-      <p className="text-sm font-semibold mb-2.5 text-foreground">{label}</p>
-      <div className="space-y-1.5">
-        {payload.map((entry, index) => {
-          const name = entry.name === "calories" ? "卡路里" : entry.name === "protein" ? "蛋白质" : entry.name === "carbs" ? "碳水化合物" : "脂肪"
-          return <div key={index} className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} /><span className="text-xs text-muted-foreground font-medium">{name}</span></div><span className="text-xs font-bold tabular-nums" style={{ color: entry.color }}>{entry.value}{entry.name === "calories" ? "" : "g"}</span></div>
-        })}
-      </div>
-    </div>
-  )
+function Metric({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="min-w-0 rounded-xl bg-muted/50 p-3"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 font-semibold tabular-nums">{children}</div></div>
 }
 
 export default function AnalyticsPage() {
-  const [timeframe, setTimeframe] = useState<"本周" | "上周" | "本月">("本周")
+  const [timeframe, setTimeframe] = useState<Timeframe>("7d")
+  const [insights, setInsights] = useState<Insights | null>(null)
+  const [experiments, setExperiments] = useState<Experiment[]>([])
+  const [missing, setMissing] = useState<string[]>([])
+  const [instruction, setInstruction] = useState("")
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [weeklyData, setWeeklyData] = useState<DailyData[]>([])
-  const [recordCount, setRecordCount] = useState(0)
-  const [dailyCalorieGoal, setDailyCalorieGoal] = useState(1800)
-  const [stats, setStats] = useState<NutritionStats>({
-    avgCalories: 0,
-    caloriesTrend: 0,
-    prevCalories: 0,
-    avgProtein: 0,
-    proteinTrend: 0,
-    prevProtein: 0,
-    avgCarbs: 0,
-    carbsTrend: 0,
-    prevCarbs: 0,
-    avgFats: 0,
-    fatsTrend: 0,
-    prevFats: 0,
-  })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
 
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const response = await fetch(`/api/analytics?timeframe=${encodeURIComponent(timeframe)}`)
-        const analyticsData = await response.json()
-        if (!response.ok || !analyticsData.success) throw new Error(analyticsData.error?.message || "加载分析数据失败")
-        if (cancelled) return
-        setStats(analyticsData.data.stats || {
-          avgCalories: 0,
-          caloriesTrend: 0,
-          prevCalories: 0,
-          avgProtein: 0,
-          proteinTrend: 0,
-          prevProtein: 0,
-          avgCarbs: 0,
-          carbsTrend: 0,
-          prevCarbs: 0,
-          avgFats: 0,
-          fatsTrend: 0,
-          prevFats: 0,
-        })
-        setWeeklyData(analyticsData.data.dailyData || [])
-        setRecordCount(analyticsData.data.recordCount || 0)
-        setDailyCalorieGoal(analyticsData.data.dailyCalorieGoal || 1800)
-      } catch (error) {
-        if (!cancelled) setError(error instanceof Error ? error.message : "加载失败")
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError("")
+    try {
+      const [insightsResponse, experimentsResponse] = await Promise.all([
+        fetch(`/api/insights?timeframe=${timeframe}`),
+        fetch("/api/experiments"),
+      ])
+      const [insightsBody, experimentsBody] = await Promise.all([insightsResponse.json(), experimentsResponse.json()])
+      if (!insightsResponse.ok || !insightsBody.success) throw new Error(insightsBody.error?.message || "加载洞察失败")
+      if (!experimentsResponse.ok || !experimentsBody.success) throw new Error(experimentsBody.error?.message || "加载周度尝试失败")
+      setInsights(insightsBody.data)
+      setExperiments(experimentsBody.data.experiments || [])
+      const editable = (experimentsBody.data.experiments as Experiment[]).find(item => item.status === "proposed")
+      setInstruction(editable?.instruction || "")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "加载失败")
+    } finally {
+      setLoading(false)
     }
-    void load()
-    return () => { cancelled = true }
   }, [timeframe])
 
-  const totalProtein = weeklyData && Array.isArray(weeklyData) && weeklyData.length > 0
-    ? weeklyData.reduce((sum, day) => sum + (day.protein || 0), 0) : 0
-  const totalCarbs = weeklyData && Array.isArray(weeklyData) && weeklyData.length > 0
-    ? weeklyData.reduce((sum, day) => sum + (day.carbs || 0), 0) : 0
-  const totalFats = weeklyData && Array.isArray(weeklyData) && weeklyData.length > 0
-    ? weeklyData.reduce((sum, day) => sum + (day.fats || 0), 0) : 0
-  const hasRecords = recordCount > 0
-  const comparisonLabel = timeframe === "本月" ? "上月" : timeframe === "上周" ? "前一周" : "上周"
+  useEffect(() => {
+    const request = window.setTimeout(() => void load(), 0)
+    return () => window.clearTimeout(request)
+  }, [load])
 
-  // 如果没有营养数据（都是0），显示均匀分布33.33%
-  const macroDistribution = (() => {
-    if (totalProtein === 0 && totalCarbs === 0 && totalFats === 0) {
-      return [
-        {
-          name: "蛋白质",
-          value: 0,
-          color: "#e74c3c",
-          percentage: "33.3",
-        },
-        {
-          name: "碳水化合物",
-          value: 0,
-          color: "#f39c12",
-          percentage: "33.3",
-        },
-        { name: "脂肪", value: 0, color: "#3498db", percentage: "33.4" }, // 33.4 确保总和为100%
-      ]
+  async function propose() {
+    setBusy(true)
+    setError("")
+    try {
+      const response = await fetch("/api/experiments", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })
+      const body = await response.json()
+      if (!response.ok || !body.success) throw new Error(body.error?.message || "暂时无法提出尝试")
+      setMissing(body.data.missing || [])
+      if (body.data.experiment) {
+        setInstruction(body.data.experiment.instruction)
+        await load()
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "操作失败")
+    } finally {
+      setBusy(false)
     }
-
-    const totalMacros = totalProtein + totalCarbs + totalFats
-    return [
-      {
-        name: "蛋白质",
-        value: totalProtein,
-        color: "#e74c3c",
-        percentage: ((totalProtein / totalMacros) * 100).toFixed(1),
-      },
-      {
-        name: "碳水化合物",
-        value: totalCarbs,
-        color: "#f39c12",
-        percentage: ((totalCarbs / totalMacros) * 100).toFixed(1),
-      },
-      { name: "脂肪", value: totalFats, color: "#3498db", percentage: ((totalFats / totalMacros) * 100).toFixed(1) },
-    ]
-  })()
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-24">
-        <div className="text-center space-y-4">
-          <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
-          <p className="text-muted-foreground">加载分析数据...</p>
-        </div>
-        <BottomNav />
-      </div>
-    )
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center pb-24">
-        <div className="text-center space-y-4 px-4">
-          <div className="text-destructive text-lg font-semibold">{error}</div>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            重试
-          </button>
-        </div>
-        <BottomNav />
-      </div>
-    )
+  async function updateExperiment(experiment: Experiment, status?: ExperimentStatus) {
+    setBusy(true)
+    setError("")
+    try {
+      const payload = status ? { status, ...(status === "active" ? { instruction } : {}) } : { instruction }
+      const response = await fetch(`/api/experiments/${experiment.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const body = await response.json()
+      if (!response.ok || !body.success) throw new Error(body.error?.message || "更新尝试失败")
+      await load()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "操作失败")
+    } finally {
+      setBusy(false)
+    }
   }
 
-  return (
-      <div className="min-h-screen bg-background pb-24">
-        <div className="max-w-md mx-auto px-4 py-6 space-y-5">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">营养分析</h1>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 px-4 py-2 bg-card rounded-full shadow-sm hover:shadow-md transition-shadow">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm font-medium">{timeframe}</span>
-                <ChevronRight className="w-3 h-3 rotate-90" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-32">
-              <DropdownMenuItem onClick={() => setTimeframe("本周")} className="cursor-pointer">
-                本周
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTimeframe("上周")} className="cursor-pointer">
-                上周
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setTimeframe("本月")} className="cursor-pointer">
-                本月
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+  const currentExperiment = experiments.find(item => item.status === "active" || item.status === "proposed")
+  const history = experiments.filter(item => item.status !== "active" && item.status !== "proposed").slice(0, 3)
 
-        {/* Weekly Overview Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center">
-                <Flame className="w-4.5 h-4.5 text-amber-600" />
-              </div>
-              <span className="text-xs text-muted-foreground font-medium">平均卡路里</span>
-            </div>
-            <div className="text-3xl font-bold mb-1.5 tabular-nums">{stats.avgCalories}</div>
-            <div
-              className={cn(
-                "flex items-center gap-1 text-xs font-semibold",
-                trendClass(stats.caloriesTrend, "text-red-500", "text-green-600"),
-              )}
-            >
-              <TrendIcon value={stats.caloriesTrend} />
-              <span>{Math.abs(stats.caloriesTrend)}% vs {comparisonLabel}</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevCalories})</p>
-          </Card>
+  return <div className="min-h-screen bg-background pb-24">
+    <main className="mx-auto max-w-md space-y-5 px-4 py-6">
+      <header className="flex items-center justify-between gap-3">
+        <div><h1 className="text-2xl font-bold">综合洞察</h1><p className="mt-1 text-xs text-muted-foreground">只展示记录中的同期现象，不作因果判断</p></div>
+        <label className="sr-only" htmlFor="insight-timeframe">统计周期</label>
+        <select id="insight-timeframe" value={timeframe} onChange={event => setTimeframe(event.target.value as Timeframe)} className="rounded-lg border bg-card px-3 py-2 text-sm">
+          <option value="7d">最近 7 天</option><option value="30d">最近 30 天</option>
+        </select>
+      </header>
 
-          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '50ms' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-protein/20 to-protein/10 flex items-center justify-center">
-                <Drumstick className="w-4.5 h-4.5 text-protein" />
-              </div>
-              <span className="text-xs text-muted-foreground font-medium">平均蛋白质</span>
-            </div>
-            <div className="text-3xl font-bold mb-1.5 tabular-nums">{stats.avgProtein}g</div>
-            <div
-              className={cn(
-                "flex items-center gap-1 text-xs font-semibold",
-                trendClass(stats.proteinTrend, "text-green-600", "text-red-500"),
-              )}
-            >
-              <TrendIcon value={stats.proteinTrend} />
-              <span>{Math.abs(stats.proteinTrend)}% vs {comparisonLabel}</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevProtein}g)</p>
-          </Card>
-
-          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '100ms' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-carbs/20 to-carbs/10 flex items-center justify-center">
-                <Wheat className="w-4.5 h-4.5 text-carbs" />
-              </div>
-              <span className="text-xs text-muted-foreground font-medium">平均碳水</span>
-            </div>
-            <div className="text-3xl font-bold mb-1.5 tabular-nums">{stats.avgCarbs}g</div>
-            <div
-              className={cn(
-                "flex items-center gap-1 text-xs font-semibold",
-                trendClass(stats.carbsTrend, "text-red-500", "text-green-600"),
-              )}
-            >
-              <TrendIcon value={stats.carbsTrend} />
-              <span>{Math.abs(stats.carbsTrend)}% vs {comparisonLabel}</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevCarbs}g)</p>
-          </Card>
-
-          <Card className="p-4 shadow-md border-0 hover:shadow-lg transition-all touch-feedback scale-in" style={{ animationDelay: '150ms' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-fats/20 to-fats/10 flex items-center justify-center">
-                <Droplet className="w-4.5 h-4.5 text-fats" />
-              </div>
-              <span className="text-xs text-muted-foreground font-medium">平均脂肪</span>
-            </div>
-            <div className="text-3xl font-bold mb-1.5 tabular-nums">{stats.avgFats}g</div>
-            <div
-              className={cn(
-                "flex items-center gap-1 text-xs font-semibold",
-                trendClass(stats.fatsTrend, "text-red-500", "text-green-600"),
-              )}
-            >
-              <TrendIcon value={stats.fatsTrend} />
-              <span>{Math.abs(stats.fatsTrend)}% vs {comparisonLabel}</span>
-            </div>
-            <p className="text-[10px] text-muted-foreground/70 mt-0.5">({comparisonLabel}: {stats.prevFats}g)</p>
-          </Card>
-        </div>
-
-        {/* Empty State */}
-        {!hasRecords && (
-          <Card className="p-6 text-center">
-            <p className="text-muted-foreground">暂无{timeframe}的饮食记录</p>
-            <p className="text-sm text-muted-foreground mt-2">开始记录您的餐食，查看营养分析数据</p>
-          </Card>
-        )}
-
-        {/* Calorie Trend Chart */}
-        {hasRecords && (
-        <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-amber-50/30 slide-up">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-            <h3 className="font-semibold text-base">卡路里趋势</h3>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
-              <div className="w-2 h-2 rounded-full bg-gradient-to-r from-gray-800 to-gray-600"></div>
-              <span className="font-medium">实际摄入</span>
-              <div className="w-6 border-t-2 border-dashed border-amber-500 ml-2"></div>
-              <span className="font-medium text-amber-600">目标</span>
-            </div>
-          </div>
-          <div className="h-64 sm:h-72 md:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="calorieGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#374151" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#374151" stopOpacity={0.02} />
-                </linearGradient>
-                <filter id="shadow">
-                  <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.3" />
-                </filter>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-                vertical={false}
-                opacity={0.5}
-              />
-              <XAxis
-                dataKey="day"
-                tick={{
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11
-                }}
-                axisLine={false}
-                tickLine={false}
-                dy={10}
-                height={60}
-                tickFormatter={(value) => {
-                  // 在小屏幕上缩短日期显示
-                  return value.length > 3 ? value.slice(0, 3) : value
-                }}
-              />
-              <YAxis
-                tick={{
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11
-                }}
-                axisLine={false}
-                tickLine={false}
-                width={40}
-                domain={[0, 'auto']}
-                tickFormatter={(value) => value}
-              />
-              <Tooltip
-                content={<CustomTooltip />}
-                cursor={{ stroke: "#9ca3af", strokeWidth: 1, strokeDasharray: "5 5", opacity: 0.5 }}
-              />
-              <ReferenceLine
-                y={dailyCalorieGoal}
-                stroke="#f59e0b"
-                strokeDasharray="6 4"
-                strokeWidth={2.5}
-                label={{
-                  value: `${dailyCalorieGoal}`,
-                  position: "right",
-                  fill: "#d97706",
-                  fontSize: 10,
-                  fontWeight: 600,
-                  offset: 10,
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="calories"
-                stroke="#1f2937"
-                strokeWidth={3}
-                fill="url(#calorieGradient)"
-                dot={(props: {
-                  cx?: number
-                  cy?: number
-                  payload?: {
-                    date: string
-                    calories: number
-                    protein: number
-                    carbs: number
-                    fats: number
-                  }
-                }) => {
-                  const { cx, cy, payload } = props
-                  const key = `dot-${cx}-${cy}`
-                  if (!payload || payload.calories === 0) return <circle key={key} cx={cx} cy={cy} r={0} />
-                  return (
-                    <circle
-                      key={key}
-                      cx={cx}
-                      cy={cy}
-                      r={5}
-                      fill="#ffffff"
-                      stroke="#1f2937"
-                      strokeWidth={2.5}
-                      filter="url(#shadow)"
-                    />
-                  )
-                }}
-                activeDot={{ 
-                  r: 7, 
-                  strokeWidth: 3,
-                  fill: "#ffffff",
-                  stroke: "#1f2937"
-                }}
-                connectNulls
-              />
-            </AreaChart>
-            </ResponsiveContainer>
-          </div>
+      {error && <Card className="p-4 text-sm text-destructive">{error}<Button className="ml-2" size="sm" variant="outline" onClick={() => void load()}>重试</Button></Card>}
+      {loading || !insights ? <Card className="p-8 text-center text-muted-foreground">加载中…</Card> : <>
+        <Card className="p-5">
+          <div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 font-semibold"><CalendarDays className="size-4 text-primary" />数据完整度</h2><span className="text-xs text-muted-foreground">{insights.range.start_date} 至 {insights.range.end_date}</span></div>
+          <div className="mt-4 grid grid-cols-3 gap-2"><Metric label="饮食记录">{insights.completeness.meal_days} 天</Metric><Metric label="完成训练">{insights.completeness.completed_workouts} 次</Metric><Metric label="状态打卡">{insights.completeness.checkin_days} 天</Metric></div>
         </Card>
-        )}
 
-        {/* Macronutrient Distribution */}
-        {hasRecords && (
-        <Card className="p-5 shadow-md border-0 bg-gradient-to-br from-card via-card to-orange-50/20 slide-up" style={{ animationDelay: '100ms' }}>
-          <h3 className="font-semibold mb-4 text-base">营养素分布</h3>
-          <div className="h-64 sm:h-72 md:h-80">
-            <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="proteinGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#dc2626" stopOpacity={0.85} />
-                </linearGradient>
-                <linearGradient id="carbsGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#d97706" stopOpacity={0.85} />
-                </linearGradient>
-                <linearGradient id="fatsGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#2563eb" stopOpacity={0.85} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="hsl(var(--border))"
-                vertical={false}
-                opacity={0.5}
-              />
-              <XAxis
-                dataKey="day"
-                tick={{
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11
-                }}
-                axisLine={false}
-                tickLine={false}
-                dy={10}
-                height={60}
-                tickFormatter={(value) => {
-                  // 在小屏幕上缩短日期显示
-                  return value.length > 3 ? value.slice(0, 3) : value
-                }}
-              />
-              <YAxis
-                tick={{
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11
-                }}
-                axisLine={false}
-                tickLine={false}
-                width={40}
-                domain={[0, 'auto']}
-                tickFormatter={(value) => value}
-              />
-              <Tooltip
-                content={<CustomTooltip />}
-                cursor={{ fill: "rgba(0, 0, 0, 0.03)" }}
-              />
-              <Bar 
-                dataKey="protein" 
-                stackId="a" 
-                fill="url(#proteinGradient)" 
-                radius={[0, 0, 0, 0]}
-                maxBarSize={40}
-              />
-              <Bar 
-                dataKey="carbs" 
-                stackId="a" 
-                fill="url(#carbsGradient)" 
-                radius={[0, 0, 0, 0]}
-                maxBarSize={40}
-              />
-              <Bar 
-                dataKey="fats" 
-                stackId="a" 
-                fill="url(#fatsGradient)" 
-                radius={[6, 6, 0, 0]}
-                maxBarSize={40}
-              />
-            </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 mt-4">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm shadow-sm" style={{ background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)" }} />
-              <span className="text-xs text-muted-foreground font-medium">蛋白质</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm shadow-sm" style={{ background: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)" }} />
-              <span className="text-xs text-muted-foreground font-medium">碳水化合物</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-sm shadow-sm" style={{ background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)" }} />
-              <span className="text-xs text-muted-foreground font-medium">脂肪</span>
-            </div>
-          </div>
-
-          <div className="mt-5 pt-5 border-t border-border">
-            <h4 className="font-semibold mb-3 text-sm">{timeframe}营养素总览</h4>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
-              <ResponsiveContainer width={120} height={120} className="sm:w-[130px] sm:h-[130px]">
-                <PieChart>
-                  <Pie
-                    data={macroDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={32}
-                    outerRadius={48}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {macroDistribution.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="flex-1 w-full space-y-2 sm:space-y-2.5">
-                {macroDistribution.map((macro) => (
-                  <div key={macro.name} className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full shadow-sm flex-shrink-0" style={{ backgroundColor: macro.color }} />
-                      <span className="text-xs text-muted-foreground font-medium truncate">{macro.name}</span>
-                    </div>
-                    <span className="text-sm font-bold tabular-nums text-foreground">{macro.percentage}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        <Card className="p-5">
+          <div className="flex items-center justify-between"><h2 className="flex items-center gap-2 font-semibold"><Utensils className="size-4 text-primary" />营养</h2><span className="text-xs text-muted-foreground">{confidenceLabels[insights.nutrition.confidence]}</span></div>
+          {insights.nutrition.daily_average ? <div className="mt-4 grid grid-cols-2 gap-2"><Metric label="日均热量">{Math.round(insights.nutrition.daily_average.calories)} kcal</Metric><Metric label="日均蛋白质">{Math.round(insights.nutrition.daily_average.protein)} g</Metric><Metric label="日均碳水">{Math.round(insights.nutrition.daily_average.carbs)} g</Metric><Metric label="日均脂肪">{Math.round(insights.nutrition.daily_average.fats)} g</Metric></div> : <p className="mt-4 text-sm text-muted-foreground">周期内还没有饮食记录；未记录日期不会按零摄入计算。</p>}
+          <p className="mt-3 text-xs text-muted-foreground">共 {insights.nutrition.meal_count} 餐，覆盖 {insights.nutrition.recorded_days} 天。</p>
         </Card>
-        )}
 
-        </div>
+        <Card className="p-5">
+          <h2 className="flex items-center gap-2 font-semibold"><Dumbbell className="size-4 text-primary" />训练</h2>
+          <div className="mt-4 grid grid-cols-2 gap-2"><Metric label="完成 / 总时长">{insights.training.completed_sessions} 次 · {insights.training.total_minutes} 分钟</Metric><Metric label="力量完成组">{insights.training.strength_sets} 组</Metric><Metric label="重量 × 次数">{insights.training.volume_kg_reps} kg·次</Metric><Metric label="主观强度均值">{value(insights.training.average_effort, " / 10")}</Metric><Metric label="有氧">{insights.training.cardio_minutes} 分钟</Metric><Metric label="有氧距离">{insights.training.cardio_distance_meters >= 1000 ? `${Math.round(insights.training.cardio_distance_meters / 100) / 10} km` : `${insights.training.cardio_distance_meters} m`}</Metric></div>
+          <p className="mt-3 text-xs text-muted-foreground">模板完成率：{value(insights.training.template_completion_rate, "%")}</p>
+        </Card>
 
-        <BottomNav />
-      </div>
-  )
+        <Card className="p-5">
+          <h2 className="flex items-center gap-2 font-semibold"><BatteryMedium className="size-4 text-primary" />状态</h2>
+          <div className="mt-4 grid grid-cols-2 gap-2"><Metric label="精力均值">{value(insights.status.energy, " / 5")}</Metric><Metric label="饥饿均值">{value(insights.status.hunger, " / 5")}</Metric><Metric label="酸痛均值">{value(insights.status.soreness, " / 5")}</Metric><Metric label="睡眠均值">{value(insights.status.sleep_hours, " 小时")}</Metric></div>
+          <p className="mt-3 text-xs text-muted-foreground">各指标分别展示，不合成为恢复分或健康分。共 {insights.status.recorded_days} 天记录。</p>
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="flex items-center gap-2 font-semibold"><Ruler className="size-4 text-primary" />身体指标</h2>
+          {insights.body_metrics.length ? <div className="mt-4 space-y-2">{insights.body_metrics.map(item => <div key={item.date} className="grid grid-cols-4 gap-2 border-b py-2 text-xs last:border-0"><span className="font-medium">{item.date.slice(5)}</span><span>{value(item.weight_kg, " kg")}</span><span>{value(item.waist_cm, " cm")}</span><span>{value(item.body_fat_percent, "%")}</span></div>)}</div> : <p className="mt-4 text-sm text-muted-foreground">周期内还没有身体指标记录。</p>}
+          <div className="mt-2 grid grid-cols-4 gap-2 text-[11px] text-muted-foreground"><span>日期</span><span>体重</span><span>腰围</span><span>体脂率</span></div>
+          <p className="mt-3 text-xs text-muted-foreground">展示原始记录点；单日变化可能只是测量波动。</p>
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="flex items-center gap-2 font-semibold"><Activity className="size-4 text-primary" />观察模式</h2>
+          {insights.observations.length ? <ul className="mt-3 space-y-2 text-sm">{insights.observations.map(item => <li key={item} className="rounded-xl bg-muted/50 p-3">{item}</li>)}</ul> : <p className="mt-3 text-sm text-muted-foreground">现有记录还不足以形成观察，继续按平常方式记录即可。</p>}
+        </Card>
+
+        <Card className="p-5">
+          <div className="flex items-center justify-between gap-3"><h2 className="flex items-center gap-2 font-semibold"><FlaskConical className="size-4 text-primary" />周度单变量尝试</h2>{currentExperiment && <span className="text-xs text-muted-foreground">{statusLabels[currentExperiment.status]}</span>}</div>
+          {currentExperiment ? <div className="mt-4 space-y-3"><div><h3 className="font-medium">{currentExperiment.title}</h3><p className="mt-1 text-xs text-muted-foreground">{currentExperiment.start_date} 至 {currentExperiment.end_date}</p></div><textarea aria-label="尝试说明" disabled={currentExperiment.status !== "proposed" || busy} value={currentExperiment.status === "proposed" ? instruction : currentExperiment.instruction} onChange={event => setInstruction(event.target.value)} className="min-h-24 w-full rounded-xl border bg-background p-3 text-sm disabled:opacity-80" /><p className="text-xs text-muted-foreground">{currentExperiment.hypothesis}</p>{currentExperiment.status === "proposed" ? <div className="flex flex-wrap gap-2"><Button disabled={busy || !instruction.trim()} onClick={() => void updateExperiment(currentExperiment, "active")}>确认开始</Button><Button disabled={busy || !instruction.trim()} variant="outline" onClick={() => void updateExperiment(currentExperiment)}>保存修改</Button><Button disabled={busy} variant="ghost" onClick={() => void updateExperiment(currentExperiment, "skipped")}>跳过</Button></div> : <div className="flex gap-2"><Button disabled={busy} onClick={() => void updateExperiment(currentExperiment, "completed")}>结束并记录</Button><Button disabled={busy} variant="ghost" onClick={() => void updateExperiment(currentExperiment, "cancelled")}>取消</Button></div>}</div> : <div className="mt-4"><p className="text-sm text-muted-foreground">满足 4 天饮食、2 次训练和 3 次状态打卡后，可提出一个需要你确认的七天尝试。</p><Button className="mt-3" disabled={busy} onClick={() => void propose()}>检查并提出尝试</Button>{missing.length > 0 && <ul className="mt-3 space-y-1 text-xs text-muted-foreground">{missing.map(item => <li key={item}>{item}</li>)}</ul>}</div>}
+          {history.length > 0 && <div className="mt-5 border-t pt-4"><h3 className="text-sm font-medium">最近历史</h3><div className="mt-2 space-y-2">{history.map(item => <div key={item.id} className="flex items-center justify-between text-xs"><span className="truncate pr-3">{item.title}</span><span className="shrink-0 text-muted-foreground">{statusLabels[item.status]}</span></div>)}</div></div>}
+        </Card>
+      </>}
+    </main>
+    <BottomNav />
+  </div>
 }
