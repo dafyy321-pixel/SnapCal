@@ -1,0 +1,24 @@
+{
+  "date": "2026-09-04",
+  "url": "http://localhost:3100",
+  "healthScore": 98.8,
+  "issues": [
+    {
+      "id": "ISSUE-003-SCAN",
+      "title": "Scan close control has no accessible name",
+      "severity": "medium",
+      "category": "accessibility",
+      "status": "deferred-protected-file"
+    }
+  ],
+  "categoryScores": {
+    "console": 100,
+    "links": 100,
+    "visual": 100,
+    "functional": 100,
+    "ux": 100,
+    "performance": 100,
+    "content": 100,
+    "accessibility": 92
+  }
+}
