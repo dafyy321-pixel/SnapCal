@@ -1,6 +1,6 @@
 "use client"
 
-import { Home, BarChart3, User } from "lucide-react"
+import { Home, BarChart3, ListChecks, User } from "lucide-react"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 
@@ -9,8 +9,9 @@ export function BottomNav() {
   const router = useRouter()
 
   const navItems = [
-    { icon: Home, label: "首页", path: "/" },
-    { icon: BarChart3, label: "分析", path: "/analytics" },
+    { icon: Home, label: "今天", path: "/" },
+    { icon: ListChecks, label: "记录", path: "/records" },
+    { icon: BarChart3, label: "洞察", path: "/analytics" },
     { icon: User, label: "我的", path: "/profile" },
   ]
 
@@ -19,11 +20,12 @@ export function BottomNav() {
       <div className="max-w-md mx-auto flex items-center justify-around h-14 px-4">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.path
+          const isActive = item.path === "/" ? pathname === "/" : pathname.startsWith(item.path)
           return (
             <button
               key={item.path}
               onClick={() => router.push(item.path)}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-colors",
                 isActive ? "text-primary" : "text-muted-foreground",
