@@ -131,6 +131,16 @@ export default function HomePage() {
     fats: sum.fats + meal.fats,
   }), { calories: 0, protein: 0, carbs: 0, fats: 0 }), [meals])
 
+  const macroGoals = useMemo(() => [
+    { name: "蛋白质", value: totals.protein, goal: profile.daily_protein_goal, color: "#ef4444" },
+    { name: "碳水", value: totals.carbs, goal: profile.daily_carbs_goal, color: "#f59e0b" },
+    { name: "脂肪", value: totals.fats, goal: profile.daily_fats_goal, color: "#8b5cf6" },
+  ].map(item => ({
+    ...item,
+    percentage: item.goal > 0 ? Math.min(100, item.value / item.goal * 100) : 0,
+    difference: item.goal - item.value,
+  })), [profile, totals])
+
   const grouped = useMemo(() => Object.entries(mealLabels).map(([type, label]) => ({
     type,
     label,
@@ -179,8 +189,16 @@ export default function HomePage() {
         </Card>
         {workouts.length > 0 && <section className="space-y-2"><h2 className="font-semibold">今日训练</h2>{workouts.map(workout => <button key={workout.id} className="w-full text-left" onClick={() => router.push(`/workouts/${workout.id}`)}><Card className="flex-row items-center gap-3 p-4"><Activity className="size-5 text-primary" /><span className="flex-1"><span className="block font-medium">{workout.title}</span><span className="text-xs text-muted-foreground">{workout.session_time.slice(0, 5)} · {workout.duration_minutes || 0} 分钟</span></span></Card></button>)}</section>}
         <div className="flex items-center justify-between"><h2 className="font-semibold">今日饮食</h2><Button size="sm" variant="ghost" onClick={() => router.push("/meals/new")}><Utensils />手动添加</Button></div>
-        <div className="grid grid-cols-3 gap-3">
-          {[["蛋白质", totals.protein, profile.daily_protein_goal], ["碳水", totals.carbs, profile.daily_carbs_goal], ["脂肪", totals.fats, profile.daily_fats_goal]].map(([name, value, goal]) => <Card key={String(name)} className="p-3 text-center"><div className="text-xs text-muted-foreground">{name}</div><div className="text-lg font-bold mt-1">{Math.round(Number(value))}g</div><div className="text-xs text-muted-foreground">/ {goal}g</div></Card>)}
+        <div className="grid grid-cols-3 gap-3" aria-label="每日营养目标完成度">
+          {macroGoals.map(item => <Card key={item.name} className="p-3 text-center items-center">
+            <div className="relative size-16 rounded-full" style={{ background: `conic-gradient(${item.color} ${item.percentage * 3.6}deg, var(--muted) 0deg)` }}>
+              <div className="absolute inset-1.5 rounded-full bg-card flex items-center justify-center text-sm font-bold">{Math.round(item.value)}g</div>
+            </div>
+            <div className="text-xs font-medium mt-2">{item.name}</div>
+            <div className="text-[11px] text-muted-foreground">
+              {item.difference > 0 ? `还差 ${Math.round(item.difference)}g` : item.difference < 0 ? `超出 ${Math.round(Math.abs(item.difference))}g` : "已达标"}
+            </div>
+          </Card>)}
         </div>
         {loading ? <Card className="p-8 text-center text-muted-foreground">加载中…</Card> : grouped.length === 0 ? <Card className="p-8 text-center"><p className="font-medium">这天还没有餐食记录</p><p className="text-sm text-muted-foreground mt-2">点击右下角按钮拍照识别</p></Card> : grouped.map(group => <section key={group.type} className="space-y-2"><h2 className="font-semibold">{group.label}</h2>{group.meals.map(meal => <Card key={meal.id} className="p-3 flex items-center gap-3 cursor-pointer" onClick={() => router.push(`/meal/${meal.id}`)}><FoodImage src={meal.image_url || "/placeholder.svg"} alt={meal.meal_name} foodName={meal.meal_name} width={64} height={64} className="w-16 h-16 shrink-0" imageClassName="w-16 h-16 object-cover" /><div className="flex-1 min-w-0"><div className="font-medium truncate">{meal.meal_name}</div><div className="text-xs text-muted-foreground mt-1">{meal.meal_time.slice(0, 5)} · {Math.round(meal.calories)} kcal</div></div><Button aria-label={`删除${meal.meal_name}`} variant="ghost" size="icon" onClick={event => { event.stopPropagation(); removeMeal(meal.id) }}><Trash2 className="w-4 h-4 text-destructive" /></Button></Card>)}</section>)}
       </main>
