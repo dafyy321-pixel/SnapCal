@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <body className={`${_geist.className} antialiased`}>
         <ErrorBoundary maxRetries={3}>
           {/* 在桌面上显示灰色背景，模拟移动设备 */}

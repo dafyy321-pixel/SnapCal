@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { mkdtempSync, rmSync } from "node:fs"
+import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -186,6 +186,11 @@ test("SnapCal local data regression suite", async t => {
       assert.match(developmentPolicy, /script-src 'self' 'unsafe-inline' 'unsafe-eval'/)
       assert.match(productionPolicy, /script-src 'self' 'unsafe-inline'/)
       assert.doesNotMatch(productionPolicy, /unsafe-eval|strict-dynamic|nonce-/)
+    })
+
+    await t.test("tolerates browser extensions adding attributes to the root element", () => {
+      const layout = readFileSync(join(process.cwd(), "app", "layout.tsx"), "utf8")
+      assert.match(layout, /<html lang="zh-CN" suppressHydrationWarning>/)
     })
   } finally {
     closeDatabase()
