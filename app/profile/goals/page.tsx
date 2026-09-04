@@ -132,6 +132,7 @@ export default function GoalsPage() {
         <div className="bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 pt-12 pb-6 px-6 border-b">
           <div className="flex items-center justify-between mb-4">
             <button
+              aria-label="返回"
               onClick={() => router.back()}
               className="w-10 h-10 rounded-full bg-white shadow-md flex items-center justify-center hover:shadow-lg transition-shadow"
             >
@@ -139,6 +140,7 @@ export default function GoalsPage() {
             </button>
             <h1 className="text-lg font-semibold text-foreground">目标设置</h1>
             <Button
+              aria-label="保存目标"
               onClick={handleSave}
               disabled={loading}
               className="w-10 h-10 rounded-full"
@@ -164,6 +166,7 @@ export default function GoalsPage() {
                   <span className="text-lg font-semibold text-primary">{goals.dailyCalories} kcal</span>
                 </div>
                 <Slider
+                  aria-label="每日卡路里目标"
                   value={[goals.dailyCalories]}
                   onValueChange={(value) => setGoals(prev => ({ ...prev, dailyCalories: value[0] }))}
                   min={1200}
@@ -183,6 +186,7 @@ export default function GoalsPage() {
                   <span className="text-lg font-semibold text-green-600">{goals.protein}g</span>
                 </div>
                 <Slider
+                  aria-label="每日蛋白质目标"
                   value={[goals.protein]}
                   onValueChange={(value) => setGoals(prev => ({ ...prev, protein: value[0] }))}
                   min={30}
@@ -198,6 +202,7 @@ export default function GoalsPage() {
                   <span className="text-lg font-semibold text-orange-600">{goals.carbs}g</span>
                 </div>
                 <Slider
+                  aria-label="每日碳水目标"
                   value={[goals.carbs]}
                   onValueChange={(value) => setGoals(prev => ({ ...prev, carbs: value[0] }))}
                   min={100}
@@ -213,6 +218,7 @@ export default function GoalsPage() {
                   <span className="text-lg font-semibold text-purple-600">{goals.fats}g</span>
                 </div>
                 <Slider
+                  aria-label="每日脂肪目标"
                   value={[goals.fats]}
                   onValueChange={(value) => setGoals(prev => ({ ...prev, fats: value[0] }))}
                   min={20}
@@ -229,9 +235,10 @@ export default function GoalsPage() {
             <h3 className="text-lg font-semibold mb-4 text-foreground">体重管理</h3>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">当前体重 (kg)</label>
+                <label htmlFor="current-weight" className="text-sm font-medium text-muted-foreground mb-2 block">当前体重 (kg)</label>
                 <div className="flex items-center gap-3">
                   <Button
+                    aria-label="减少当前体重"
                     variant="outline"
                     size="icon"
                      onClick={() => setGoals(prev => ({ ...prev, weight: Math.max(20, prev.weight - 1) }))}
@@ -239,6 +246,7 @@ export default function GoalsPage() {
                     <Minus className="w-4 h-4" />
                   </Button>
                   <Input
+                    id="current-weight"
                     type="number"
                     value={goals.weight}
                     onChange={(e) => setGoals(prev => ({ ...prev, weight: Number(e.target.value) }))}
@@ -247,6 +255,7 @@ export default function GoalsPage() {
                      max={500}
                   />
                   <Button
+                    aria-label="增加当前体重"
                     variant="outline"
                     size="icon"
                      onClick={() => setGoals(prev => ({ ...prev, weight: Math.min(500, prev.weight + 1) }))}
@@ -257,9 +266,10 @@ export default function GoalsPage() {
               </div>
 
               <div>
-                <label className="text-sm font-medium text-muted-foreground mb-2 block">目标体重 (kg)</label>
+                <label htmlFor="target-weight" className="text-sm font-medium text-muted-foreground mb-2 block">目标体重 (kg)</label>
                 <div className="flex items-center gap-3">
                   <Button
+                    aria-label="减少目标体重"
                     variant="outline"
                     size="icon"
                      onClick={() => setGoals(prev => ({ ...prev, targetWeight: Math.max(20, prev.targetWeight - 1) }))}
@@ -267,6 +277,7 @@ export default function GoalsPage() {
                     <Minus className="w-4 h-4" />
                   </Button>
                   <Input
+                    id="target-weight"
                     type="number"
                     value={goals.targetWeight}
                     onChange={(e) => setGoals(prev => ({ ...prev, targetWeight: Number(e.target.value) }))}
@@ -275,6 +286,7 @@ export default function GoalsPage() {
                      max={500}
                   />
                   <Button
+                    aria-label="增加目标体重"
                     variant="outline"
                     size="icon"
                      onClick={() => setGoals(prev => ({ ...prev, targetWeight: Math.min(500, prev.targetWeight + 1) }))}
@@ -318,6 +330,7 @@ export default function GoalsPage() {
                     <span className="text-lg font-semibold text-primary">{goals.weeklyGoal}kg</span>
                   </div>
                   <Slider
+                    aria-label={`每周${getWeightGoalText()}目标`}
                     value={[goals.weeklyGoal]}
                     onValueChange={(value) => setGoals(prev => ({ ...prev, weeklyGoal: value[0] }))}
                     min={0.1}

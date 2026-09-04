@@ -12,7 +12,7 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto">
-        <header className="pt-12 pb-6 px-6 border-b flex items-center justify-between"><button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white shadow flex items-center justify-center"><ArrowLeft className="w-5 h-5" /></button><h1 className="text-lg font-semibold">关于 SnapCal</h1><div className="w-10" /></header>
+        <header className="pt-12 pb-6 px-6 border-b flex items-center justify-between"><button aria-label="返回" onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white shadow flex items-center justify-center"><ArrowLeft className="w-5 h-5" /></button><h1 className="text-lg font-semibold">关于 SnapCal</h1><div className="w-10" /></header>
         <div className="p-6 space-y-5">
           <Card className="p-6 text-center"><Image src="/logo.png" alt="SnapCal" width={80} height={80} className="mx-auto mb-3 object-contain" /><h2 className="text-2xl font-bold">SnapCal</h2><p className="text-sm text-muted-foreground mt-2">饮食、训练与状态放在一起的本地健康助手</p></Card>
           <Card className="p-5 flex gap-3"><Database className="w-6 h-6 text-primary shrink-0" /><div><h3 className="font-semibold">本地优先</h3><p className="text-sm text-muted-foreground mt-1">使用 SQLite 在本机保存饮食、训练、状态和身体指标，不需要用户账号或云同步。能访问本机服务的人也能读取数据，请勿直接暴露到公网。</p></div></Card>

@@ -24,7 +24,7 @@ export default function HelpPage() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-md mx-auto">
-        <header className="pt-12 pb-6 px-6 border-b flex items-center justify-between"><button onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white shadow flex items-center justify-center"><ArrowLeft className="w-5 h-5" /></button><h1 className="text-lg font-semibold">帮助中心</h1><div className="w-10" /></header>
+        <header className="pt-12 pb-6 px-6 border-b flex items-center justify-between"><button aria-label="返回" onClick={() => router.back()} className="w-10 h-10 rounded-full bg-white shadow flex items-center justify-center"><ArrowLeft className="w-5 h-5" /></button><h1 className="text-lg font-semibold">帮助中心</h1><div className="w-10" /></header>
         <div className="p-6"><Card className="divide-y overflow-hidden">{questions.map(([question, answer], index) => <div key={question}><button onClick={() => setOpen(open === index ? null : index)} className="w-full p-4 flex items-center justify-between text-left font-medium">{question}{open === index ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</button>{open === index && <p className="px-4 pb-4 text-sm text-muted-foreground leading-6">{answer}</p>}</div>)}</Card></div>
       </div>
       <BottomNav />
