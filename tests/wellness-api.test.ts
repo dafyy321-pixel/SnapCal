@@ -14,7 +14,17 @@ function jsonRequest(url: string, method: string, body: unknown) {
 }
 
 async function data(response: Response) {
-  return response.json() as Promise<{ success: boolean; data?: Record<string, any>; error?: { code: string } }>
+  type ApiData = {
+    workout: { id: string; title: string }
+    workouts: unknown[]
+    pagination: { total: number }
+    templates: Array<{ id: string; is_builtin: boolean }>
+    template: { is_builtin: boolean }
+    checkin: { energy: number }
+    metrics: unknown[]
+    summary: { completed_workout_count: number; workout_minutes: number }
+  }
+  return response.json() as Promise<{ success: boolean; data?: ApiData; error?: { code: string } }>
 }
 
 test("wellness API routes", async t => {
@@ -75,6 +85,7 @@ test("wellness API routes", async t => {
     await t.test("protects and copies built-in templates", async () => {
       const listed = await data(await templates.GET())
       const builtIn = listed.data!.templates.find((item: { is_builtin: boolean }) => item.is_builtin)
+      assert.ok(builtIn)
       const context = { params: Promise.resolve({ id: builtIn.id }) }
       const blocked = await template.DELETE(new Request("http://localhost"), context)
       assert.equal(blocked.status, 409)
