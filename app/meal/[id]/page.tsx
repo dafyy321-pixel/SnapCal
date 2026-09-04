@@ -209,7 +209,7 @@ export default function MealDetailPage() {
                 width={400}
                 height={320}
                 className="w-full"
-                imageClassName="w-full max-h-80 object-contain p-2"
+                imageClassName="w-full h-full object-contain object-center p-2"
               />
             </Card>
           )}
