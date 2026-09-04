@@ -54,11 +54,11 @@ test("wellness repositories", async t => {
     })
 
     await t.test("keeps only one active action card per date", () => {
-      const candidate = { id: "checkin", kind: "logging" as const, priority: 100, title: "状态打卡", action_text: "完成打卡", rationale_codes: ["missing_checkin"], valid_until: "2026-09-04T00:00:00.000Z", payload: {} }
-      const common = { candidate_id: candidate.id, card_date: "2026-09-03", kind: candidate.kind, title: candidate.title, action_text: candidate.action_text, rationale: "需要状态信息", confidence: "high" as const, source: "rules" as const, valid_until: candidate.valid_until, input_snapshot: {}, candidate_snapshot: [candidate], response_reason: null, ai_run_id: null }
+      const candidate = { id: "checkin", kind: "logging" as const, priority: 100, title: "状态打卡", action_text: "完成打卡", rationale_codes: ["missing_checkin"], valid_until: "2099-09-04T00:00:00.000Z", payload: {} }
+      const common = { candidate_id: candidate.id, card_date: "2099-09-03", kind: candidate.kind, title: candidate.title, action_text: candidate.action_text, rationale: "需要状态信息", confidence: "high" as const, source: "rules" as const, valid_until: candidate.valid_until, input_snapshot: {}, candidate_snapshot: [candidate], response_reason: null, ai_run_id: null }
       const first = wellnessDb.createAction(common)
       const second = wellnessDb.createAction({ ...common, title: "新的行动" })
-      assert.equal(wellnessDb.getActiveAction("2026-09-03")?.id, second.id)
+      assert.equal(wellnessDb.getActiveAction("2099-09-03")?.id, second.id)
       const old = getDatabase().prepare("SELECT status FROM action_cards WHERE id = ?").get(first.id) as { status: string }
       assert.equal(old.status, "replaced")
     })
