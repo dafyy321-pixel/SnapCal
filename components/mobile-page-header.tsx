@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation"
 
 export function MobilePageHeader({ title, description }: { title: string; description?: string }) {
   const router = useRouter()
+  const goBack = () => window.history.length > 2 ? router.back() : router.push("/")
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex max-w-md items-center gap-3">
-        <button type="button" aria-label="返回" onClick={() => router.back()} className="grid size-10 shrink-0 place-items-center rounded-full border bg-card">
+        <button type="button" aria-label="返回" onClick={goBack} className="grid size-10 shrink-0 place-items-center rounded-full border bg-card">
           <ArrowLeft className="size-5" />
         </button>
         <div className="min-w-0">
