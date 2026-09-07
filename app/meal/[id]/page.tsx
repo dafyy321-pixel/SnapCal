@@ -218,8 +218,8 @@ export default function MealDetailPage() {
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold leading-tight">{meal.meal_name}</h2>
-                <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+                <h2 className="text-center text-2xl font-bold leading-tight">{meal.meal_name}</h2>
+                <div className="mt-2 flex items-center justify-center gap-3 text-sm text-muted-foreground">
                   <span>{mealTypeLabels[meal.meal_type] || meal.meal_type}</span>
                   <span>•</span>
                   <span>{formatTime(meal.meal_time)}</span>

@@ -19,4 +19,10 @@ test("today dashboard", async t => {
     assert.match(source, /今日训练/)
     assert.match(source, /今日饮食/)
   })
+
+  await t.test("centers every meal name in the dashboard card", () => {
+    assert.match(source, /flex cursor-pointer flex-col items-center gap-2 p-3 text-center/)
+    assert.match(source, /className="truncate font-medium">\{meal\.meal_name\}/)
+    assert.match(source, /className="absolute right-3 top-3"/)
+  })
 })

@@ -237,7 +237,7 @@ function AnalysisPageContent() {
           {/* Food Name & Confidence */}
           <div className="space-y-2">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-2xl font-bold leading-tight flex-1">{displayData.name}</h2>
+              <h2 className="flex-1 text-center text-2xl font-bold leading-tight">{displayData.name}</h2>
               <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full flex-shrink-0 ${
                 displayData.confidence >= 80 ? "bg-success/10 text-success" :
                 displayData.confidence >= 60 ? "bg-yellow-500/10 text-yellow-600" :
