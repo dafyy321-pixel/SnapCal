@@ -141,6 +141,7 @@ export type FoodAssistRecord = {
   image_url: string
   recognized_items: FoodAssistItem[]
   confirmed_items: FoodAssistItem[]
+  uncertainties: string[]
   primary_suggestion: FoodSuggestion | null
   alternative_suggestion: FoodSuggestion | null
   status: "recognized" | "confirmed" | "suggested" | "saved"
@@ -176,7 +177,13 @@ export type FoodVisionResult = {
   carbs: number
   fats: number
   ingredients: string[]
-  items: FoodAssistItem[]
+  items: Array<{
+    id: string
+    name: string
+    confidence: number
+    portionHint: string | null
+    nutritionKnown: boolean
+  }>
   uncertainties: string[]
   nutrition?: Record<string, number>
 }

@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Save, Trash2, TrendingDown } from "lucide-react"
 import { MobilePageHeader } from "@/components/mobile-page-header"
 import { Button } from "@/components/ui/button"
@@ -14,8 +15,10 @@ import type { BodyMetricRecord } from "@/lib/wellness-types"
 type Form = { weight_kg: number | null; waist_cm: number | null; body_fat_percent: number | null; notes: string }
 const blank: Form = { weight_kg: null, waist_cm: null, body_fat_percent: null, notes: "" }
 
-export default function BodyMetricsPage() {
-  const [date, setDate] = useState(localDateParts().date)
+function BodyMetricsContent() {
+  const searchParams = useSearchParams()
+  const requestedDate = searchParams.get("date")
+  const [date, setDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(requestedDate || "") ? requestedDate! : localDateParts().date)
   const [form, setForm] = useState<Form>(blank)
   const [metrics, setMetrics] = useState<BodyMetricRecord[]>([])
   const [exists, setExists] = useState(false)
@@ -45,4 +48,8 @@ export default function BodyMetricsPage() {
     <Card className="gap-4 p-4"><label className="space-y-1 text-sm font-medium">日期<Input type="date" value={date} onChange={event => setDate(event.target.value)} /></label><div className="grid grid-cols-2 gap-3">{field("weight_kg", "体重 kg", 20, 500)}{field("waist_cm", "腰围 cm", 30, 300)}{field("body_fat_percent", "体脂率 %", 1, 75)}</div><label className="space-y-1 text-sm font-medium">备注<Textarea maxLength={500} value={form.notes} onChange={event => setForm({ ...form, notes: event.target.value })} /></label><div className="grid grid-cols-2 gap-2">{exists && <Button variant="destructive" onClick={remove}><Trash2 />删除</Button>}<Button className={exists ? "" : "col-span-2"} onClick={save}><Save />保存指标</Button></div>{message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}</Card>
     <Card className="gap-3 p-4"><h2 className="flex items-center gap-2 font-medium"><TrendingDown className="size-4" />最近趋势</h2>{metrics.length === 0 ? <p className="text-sm text-muted-foreground">暂无记录</p> : <div className="space-y-2">{metrics.map(item => <div key={item.metric_date} className="grid grid-cols-4 gap-2 rounded-lg bg-muted p-2 text-xs"><span>{item.metric_date.slice(5)}</span><span>{item.weight_kg == null ? "—" : `${item.weight_kg} kg`}</span><span>{item.waist_cm == null ? "—" : `${item.waist_cm} cm`}</span><span>{item.body_fat_percent == null ? "—" : `${item.body_fat_percent}%`}</span></div>)}</div>}</Card>
   </main></div>
+}
+
+export default function BodyMetricsPage() {
+  return <Suspense fallback={<div className="grid min-h-screen place-items-center">加载中…</div>}><BodyMetricsContent /></Suspense>
 }

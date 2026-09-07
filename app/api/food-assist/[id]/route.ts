@@ -1,4 +1,5 @@
 import { parseInput, readJson } from "@/lib/api-validation"
+import { localDateParts } from "@/lib/date-utils"
 import { errorResponse, NotFoundError, successResponse } from "@/lib/error-handler"
 import { suggestFoodPairings } from "@/lib/food-assist-service"
 import { localDb } from "@/lib/local-db"
@@ -36,11 +37,23 @@ export async function PATCH(request: Request, context: Context) {
     }
     const input = parseInput(foodAssistConfirmSchema, body)
     const confirmed = wellnessDb.updateFoodAssist(id, { confirmed_items: input.confirmed_items, status: "confirmed" })!
-    const suggestions = await suggestFoodPairings(confirmed, localDb.getProfile())
+    const workout = confirmed.workout_id ? wellnessDb.getWorkout(confirmed.workout_id) : null
+    const date = workout?.session_date || localDateParts().date
+    const todayNutrition = localDb.listMeals({ date }).meals.reduce((sum, meal) => ({
+      calories: sum.calories + meal.calories,
+      protein: sum.protein + meal.protein,
+      carbs: sum.carbs + meal.carbs,
+      fats: sum.fats + meal.fats,
+    }), { calories: 0, protein: 0, carbs: 0, fats: 0 })
+    const suggestions = await suggestFoodPairings(confirmed, localDb.getProfile(), {
+      workout: workout ? { workout_type: workout.workout_type, perceived_effort: workout.perceived_effort, duration_minutes: workout.duration_minutes } : null,
+      today_nutrition: todayNutrition,
+    })
     return successResponse({ session: wellnessDb.updateFoodAssist(id, {
       primary_suggestion: suggestions.primary,
       alternative_suggestion: suggestions.alternative,
       status: "suggested",
+      ai_run_id: suggestions.ai_run_id,
     }) })
   } catch (error) {
     return errorResponse(error)

@@ -79,6 +79,7 @@ export const FOOD_ANALYSIS_PROMPT = `你是一位专业的营养学家和食物�
 严格输出纯 JSON，不要包含注释、markdown 标记或任何额外文字：
 
 {
+  "mode": "meal",
   "name": "食物名称",
   "confidence": 85,
   "description": "简短描述",
@@ -87,6 +88,8 @@ export const FOOD_ANALYSIS_PROMPT = `你是一位专业的营养学家和食物�
   "carbs": 35.0,
   "fats": 18.5,
   "ingredients": ["主要食材1", "主要食材2", "食材3"],
+  "items": [{ "name": "主要食材1", "confidence": 85, "portionHint": null, "nutritionKnown": false }],
+  "uncertainties": ["照片无法确认精确份量"],
   "nutrition": {
     "sodium": 850,
     "fiber": 3.2
@@ -160,6 +163,7 @@ export const FOOD_ANALYSIS_PROMPT = `你是一位专业的营养学家和食物�
 
 const nutritionValue = z.number().finite().nonnegative().max(100000)
 export const foodAnalysisResultSchema = z.object({
+  mode: z.literal("meal").default("meal"),
   name: z.string().trim().min(1).max(100),
   confidence: z.number().finite().min(0).max(100),
   description: z.string().trim().max(200).optional(),
@@ -168,6 +172,14 @@ export const foodAnalysisResultSchema = z.object({
   carbs: z.number().finite().nonnegative().max(1000),
   fats: z.number().finite().nonnegative().max(1000),
   ingredients: z.array(z.string().trim().min(1).max(50)).max(20).default([]),
+  items: z.array(z.object({
+    id: z.string().min(1).max(100).optional(),
+    name: z.string().trim().min(1).max(100),
+    confidence: z.number().finite().min(0).max(100),
+    portionHint: z.string().trim().max(100).nullable().default(null),
+    nutritionKnown: z.boolean().default(false),
+  }).strict()).max(20).default([]),
+  uncertainties: z.array(z.string().trim().min(1).max(200)).max(20).default([]),
   nutrition: z.object({
     fiber: nutritionValue.optional(),
     sugar: nutritionValue.optional(),
@@ -183,7 +195,15 @@ export const foodAnalysisResultSchema = z.object({
     transFat: nutritionValue.optional(),
     potassium: nutritionValue.optional(),
   }).default({}),
-})
+}).transform(value => ({
+  ...value,
+  items: (value.items.length ? value.items : value.ingredients.map(name => ({
+    name,
+    confidence: value.confidence,
+    portionHint: null,
+    nutritionKnown: false,
+  }))).map((item, index) => ({ ...item, id: ("id" in item && item.id) || `meal-item-${index + 1}` })),
+}))
 
 export type ValidatedFoodAnalysis = z.infer<typeof foodAnalysisResultSchema>
 

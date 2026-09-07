@@ -20,9 +20,9 @@ const querySchema = z.object({
 })
 
 const mockFoods: ValidatedFoodAnalysis[] = [
-  { name: "番茄炒蛋", confidence: 91, description: "番茄与鸡蛋快炒", calories: 180, protein: 12.5, carbs: 8.5, fats: 11, ingredients: ["番茄", "鸡蛋", "食用油"], nutrition: { sodium: 450, vitaminC: 18 } },
-  { name: "鸡胸肉沙拉", confidence: 88, description: "烤鸡胸配新鲜蔬菜", calories: 320, protein: 36, carbs: 18, fats: 12, ingredients: ["鸡胸肉", "生菜", "番茄"], nutrition: { fiber: 4.2, sodium: 380 } },
-  { name: "米饭套餐", confidence: 82, description: "米饭配家常菜", calories: 520, protein: 22, carbs: 72, fats: 16, ingredients: ["米饭", "蔬菜", "肉类"], nutrition: { fiber: 3.5, sodium: 720 } },
+  validateAndProcessFoodData({ name: "番茄炒蛋", confidence: 91, description: "番茄与鸡蛋快炒", calories: 180, protein: 12.5, carbs: 8.5, fats: 11, ingredients: ["番茄", "鸡蛋", "食用油"], nutrition: { sodium: 450, vitaminC: 18 } }),
+  validateAndProcessFoodData({ name: "鸡胸肉沙拉", confidence: 88, description: "烤鸡胸配新鲜蔬菜", calories: 320, protein: 36, carbs: 18, fats: 12, ingredients: ["鸡胸肉", "生菜", "番茄"], nutrition: { fiber: 4.2, sodium: 380 } }),
+  validateAndProcessFoodData({ name: "米饭套餐", confidence: 82, description: "米饭配家常菜", calories: 520, protein: 22, carbs: 72, fats: 16, ingredients: ["米饭", "蔬菜", "肉类"], nutrition: { fiber: 3.5, sodium: 720 } }),
 ]
 
 function mockAnalysis(hash: string): ValidatedFoodAnalysis {
@@ -58,7 +58,7 @@ async function handler(request: NextRequest) {
     }
     const bytes = new Uint8Array(validation.sanitizedContent || await image.arrayBuffer())
     const hash = imageHash(bytes)
-    const shouldUseMock = process.env.USE_MOCK_ANALYSIS === "true" || (process.env.NODE_ENV !== "production" && query.use_mock === true)
+    const shouldUseMock = process.env.NODE_ENV !== "production" && (process.env.USE_MOCK_ANALYSIS === "true" || query.use_mock === true)
     const aiConfig = getAiConfig()
     if (!shouldUseMock && !aiConfig.configured) throw new AppError("AI 服务尚未配置", 503, "AI_NOT_CONFIGURED")
     if (!shouldUseMock && !localDb.getProfile().ai_consent_at) throw new AppError("请先同意 AI 数据发送说明", 403, "AI_CONSENT_REQUIRED")

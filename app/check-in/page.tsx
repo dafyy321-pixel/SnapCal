@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Save, Trash2 } from "lucide-react"
 import { MobilePageHeader } from "@/components/mobile-page-header"
 import { Button } from "@/components/ui/button"
@@ -17,8 +18,10 @@ const labels: Record<string, string[]> = {
   soreness: ["没有", "轻微", "一般", "明显", "较高"],
 }
 
-export default function CheckInPage() {
-  const [date, setDate] = useState(localDateParts().date)
+function CheckInContent() {
+  const searchParams = useSearchParams()
+  const requestedDate = searchParams.get("date")
+  const [date, setDate] = useState(/^\d{4}-\d{2}-\d{2}$/.test(requestedDate || "") ? requestedDate! : localDateParts().date)
   const [values, setValues] = useState<{ energy: CheckinScore | null; hunger: CheckinScore | null; soreness: CheckinScore | null; sleep_hours: number | null; sleep_quality: CheckinScore | null; notes: string }>({ energy: null, hunger: null, soreness: null, sleep_hours: null, sleep_quality: null, notes: "" })
   const [exists, setExists] = useState(false)
   const [message, setMessage] = useState("")
@@ -56,4 +59,8 @@ export default function CheckInPage() {
     {message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
     <div className="grid grid-cols-2 gap-2">{exists && <Button variant="destructive" onClick={remove}><Trash2 />删除</Button>}<Button className={exists ? "" : "col-span-2"} onClick={save}><Save />保存状态</Button></div>
   </main></div>
+}
+
+export default function CheckInPage() {
+  return <Suspense fallback={<div className="grid min-h-screen place-items-center">加载中…</div>}><CheckInContent /></Suspense>
 }

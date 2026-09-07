@@ -87,7 +87,7 @@ async function aiSelector(candidates: ActionCandidate[], snapshot: Record<string
       content: `只能从候选中选择一个行动，不得创造新行动。用 JSON 返回 candidate_id、rationale、confidence。\n${JSON.stringify({ snapshot, candidates })}`,
     }],
   })
-  return result.data
+  return { selection: result.data, runId: result.runId }
 }
 
 export async function generateActionCard(date: string, options: { force?: boolean; now?: { date: string; time: string }; selector?: Selector } = {}) {
@@ -117,6 +117,13 @@ export async function generateActionCard(date: string, options: { force?: boolea
       soreness: wellnessDb.getCheckin(date)!.soreness,
       sleep_hours: wellnessDb.getCheckin(date)!.sleep_hours,
     } : null,
+    data_completeness: {
+      meal: localDb.listMeals({ date }).total > 0,
+      workout: workouts.length > 0,
+      checkin: Boolean(wellnessDb.getCheckin(date)),
+      score: [localDb.listMeals({ date }).total > 0, workouts.length > 0, Boolean(wellnessDb.getCheckin(date))].filter(Boolean).length,
+      total: 3,
+    },
   }
   let selected = candidates[0]
   let rationale = selected.rationale_codes.map(code => ({
@@ -128,16 +135,21 @@ export async function generateActionCard(date: string, options: { force?: boolea
   }[code] || code)).join("；")
   let confidence: ConfidenceLevel = selected.id === "daily-reflection" ? "medium" : "high"
   let source: "rules" | "ai_enhanced" = "rules"
+  let aiRunId: string | null = null
   const canUseAi = options.selector || (profile.ai_consent_at && getAiConfig().textModel && getAiConfig().apiKey)
   if (canUseAi) {
     try {
-      const parsed = selectionSchema.safeParse(await (options.selector || aiSelector)(candidates, snapshot))
+      const response = options.selector
+        ? { selection: await options.selector(candidates, snapshot), runId: null }
+        : await aiSelector(candidates, snapshot)
+      const parsed = selectionSchema.safeParse(response.selection)
       const matched = parsed.success ? candidates.find(item => item.id === parsed.data.candidate_id) : null
       if (matched && parsed.success) {
         selected = matched
         rationale = parsed.data.rationale
         confidence = parsed.data.confidence
         source = "ai_enhanced"
+        aiRunId = response.runId
       }
     } catch {
       // 本地规则回退是正常路径，不阻断行动卡。
@@ -156,6 +168,6 @@ export async function generateActionCard(date: string, options: { force?: boolea
     input_snapshot: snapshot,
     candidate_snapshot: candidates,
     response_reason: null,
-    ai_run_id: null,
+    ai_run_id: aiRunId,
   })
 }

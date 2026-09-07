@@ -146,7 +146,8 @@ function jsonParse<T>(value: unknown, fallback: T): T {
   if (typeof value !== "string") return fallback
   try {
     return JSON.parse(value) as T
-  } catch {
+  } catch (error) {
+    console.error("[Database] JSON field is damaged; using a safe default", error instanceof Error ? error.message : "unknown")
     return fallback
   }
 }
@@ -166,8 +167,12 @@ function initializeDatabase(database: DatabaseSync): void {
     PRAGMA busy_timeout = 5000;
   `)
 
+  const currentVersion = Number((database.prepare("PRAGMA user_version").get() as { user_version: number }).user_version)
+  if (currentVersion >= 3) return
+
   database.exec("BEGIN IMMEDIATE")
   try {
+    if (currentVersion < 1) {
     database.exec(`
 
     CREATE TABLE IF NOT EXISTS user_profiles (
@@ -486,7 +491,32 @@ function initializeDatabase(database: DatabaseSync): void {
       insertTemplate.run(id, name, type, description, JSON.stringify(exercises), now, now)
     }
 
-    database.exec("PRAGMA user_version = 1; COMMIT")
+      database.exec("PRAGMA user_version = 1")
+    }
+
+    if (currentVersion < 2) {
+      database.exec(`
+        DROP INDEX IF EXISTS idx_action_cards_one_active;
+        UPDATE action_cards
+        SET status = 'replaced', updated_at = '${new Date().toISOString()}'
+        WHERE status = 'active'
+          AND id <> (SELECT id FROM action_cards WHERE status = 'active' ORDER BY created_at DESC LIMIT 1);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_action_cards_one_active ON action_cards(status) WHERE status = 'active';
+        PRAGMA user_version = 2;
+      `)
+    }
+
+    if (currentVersion < 3) {
+      const foodAssistColumns = new Set(
+        (database.prepare("PRAGMA table_info(food_assist_sessions)").all() as Array<{ name: string }>).map(column => column.name)
+      )
+      if (!foodAssistColumns.has("uncertainties")) {
+        database.exec("ALTER TABLE food_assist_sessions ADD COLUMN uncertainties TEXT NOT NULL DEFAULT '[]'")
+      }
+      database.exec("PRAGMA user_version = 3")
+    }
+
+    database.exec("COMMIT")
   } catch (error) {
     database.exec("ROLLBACK")
     throw error

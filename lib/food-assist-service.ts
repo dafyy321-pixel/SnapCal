@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto"
 import { z } from "zod"
 import { getAiConfig } from "./ai-config"
 import { createChatCompletion } from "./openai-client"
-import type { FoodAssistItem, FoodAssistRecord, FoodSuggestion } from "./wellness-types"
+import type { FoodAssistItem, FoodAssistRecord, FoodSuggestion, WorkoutRecord } from "./wellness-types"
+
+type PairingFacts = {
+  workout: Pick<WorkoutRecord, "workout_type" | "perceived_effort" | "duration_minutes"> | null
+  today_nutrition: { calories: number; protein: number; carbs: number; fats: number }
+}
 
 const visionSchema = z.object({
   items: z.array(z.object({
@@ -48,20 +53,26 @@ export async function recognizeFoodInventory(imageUrl: string, logInput: unknown
   })
   return {
     items: result.data.items.map(item => ({ ...item, id: randomUUID() })),
-    uncertainties: result.data.uncertainties,
+    uncertainties: result.data.uncertainties ?? [],
+    ai_run_id: result.runId,
   }
 }
 
-function localSuggestions(session: FoodAssistRecord, allergies: string[]): { primary: FoodSuggestion; alternative: FoodSuggestion } {
-  const blocked = session.confirmed_items.filter(item => allergies.some(allergy => item.name.includes(allergy)))
+function localSuggestions(session: FoodAssistRecord, profile: { dietary_preferences: string[]; allergies: string[] }, facts: PairingFacts): { primary: FoodSuggestion; alternative: FoodSuggestion; ai_run_id: null } {
+  const blocked = session.confirmed_items.filter(item => profile.allergies.some(allergy => item.name.includes(allergy)))
   const usable = session.confirmed_items.filter(item => !blocked.includes(item))
   const mainItems = usable.slice(0, 3)
   const alternativeItems = usable.length > 1 ? [...usable].reverse().slice(0, 2) : usable
-  const cautions = blocked.length ? [`已记录过敏信息，请避开：${blocked.map(item => item.name).join("、")}`] : []
+  const cautions = [
+    ...(blocked.length ? [`已记录过敏信息，请避开：${blocked.map(item => item.name).join("、")}`] : []),
+    ...(profile.dietary_preferences.length ? [`按已记录饮食偏好选择：${profile.dietary_preferences.join("、")}`] : []),
+  ]
+  if (!usable.length) cautions.push("现有食材与过敏信息冲突，请修改确认项后再选择。")
+  const effort = facts.workout?.perceived_effort == null ? "" : `，本次主观强度 ${facts.workout.perceived_effort}/10`
   const copy = {
-    pre_workout: ["训练前轻量搭配", "距训练较近时优先选择自己容易消化的少量食物。"],
-    post_workout: ["训练后基础搭配", "从现有食材中组合一餐，并记得补水。"],
-    general: ["今天的简单搭配", "优先使用已经确认、容易准备的食材。"],
+    pre_workout: ["训练前轻量搭配", `${session.minutes_until_workout == null ? "训练前" : `距训练约 ${session.minutes_until_workout} 分钟`}，优先选择自己容易消化的少量食物。`],
+    post_workout: ["训练后基础搭配", `完成${facts.workout?.workout_type === "strength" ? "力量" : facts.workout?.workout_type === "cardio" ? "有氧" : "本次"}训练${effort}，从现有食材组合主食、蛋白质并补水。`],
+    general: ["今天的简单搭配", `今天已记录约 ${Math.round(facts.today_nutrition.calories)} kcal、蛋白质 ${Math.round(facts.today_nutrition.protein)} g；优先使用容易准备的食材。`],
   }[session.context]
   const build = (title: string, items: FoodAssistItem[], rationale: string): FoodSuggestion => ({
     title,
@@ -71,13 +82,14 @@ function localSuggestions(session: FoodAssistRecord, allergies: string[]): { pri
     cautions,
   })
   return {
-    primary: build(copy[0], mainItems, copy[1]),
+    primary: build(usable.length ? copy[0] : "需要补充可用食材", mainItems, usable.length ? copy[1] : "信息不足，暂不输出强结论。"),
     alternative: build("更省事的替代方案", alternativeItems, "如果主方案不方便，可先用更少的食材完成一餐。"),
+    ai_run_id: null,
   }
 }
 
-export async function suggestFoodPairings(session: FoodAssistRecord, profile: { dietary_preferences: string[]; allergies: string[]; ai_consent_at: string | null }) {
-  const fallback = localSuggestions(session, profile.allergies)
+export async function suggestFoodPairings(session: FoodAssistRecord, profile: { dietary_preferences: string[]; allergies: string[]; ai_consent_at: string | null }, facts: PairingFacts) {
+  const fallback = localSuggestions(session, profile, facts)
   const config = getAiConfig()
   if (!profile.ai_consent_at || !config.apiKey || !config.textModel) return fallback
   try {
@@ -89,12 +101,12 @@ export async function suggestFoodPairings(session: FoodAssistRecord, profile: { 
       schema: suggestionSchema,
       messages: [{
         role: "user",
-        content: `根据已确认食材生成主方案和替代方案，只能使用给出的 item id；不提供补剂或精确克数。返回 JSON。${JSON.stringify({ context: session.context, items: session.confirmed_items, dietary_preferences: profile.dietary_preferences, allergies: profile.allergies })}`,
+        content: `根据已确认食材生成主方案和替代方案，只能使用给出的 item id；结合距训练时间、训练类型与强度、当天营养汇总和饮食限制；信息不足时明确说明，不提供补剂或精确克数。返回 JSON。${JSON.stringify({ context: session.context, minutes_until_workout: session.minutes_until_workout, workout: facts.workout, today_nutrition: facts.today_nutrition, items: session.confirmed_items, dietary_preferences: profile.dietary_preferences, allergies: profile.allergies })}`,
       }],
     })
     const ids = new Set(session.confirmed_items.map(item => item.id))
     if ([...result.data.primary.item_ids, ...result.data.alternative.item_ids].some(id => !ids.has(id))) return fallback
-    return result.data
+    return { ...result.data, ai_run_id: result.runId }
   } catch {
     return fallback
   }

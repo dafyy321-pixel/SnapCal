@@ -54,7 +54,7 @@ export async function createChatCompletion<T>(input: {
   taskType: string
   promptVersion: string
   messages: ChatMessage[]
-  schema: ZodType<T>
+  schema: ZodType<T, z.ZodTypeDef, unknown>
   logInput: unknown
   fetchImpl?: typeof fetch
 }) {
@@ -89,13 +89,20 @@ export async function createChatCompletion<T>(input: {
     const parsed = input.schema.safeParse(extractJson(completion.data.choices[0].message.content))
     if (!parsed.success) throw new AiClientError("AI 返回内容未通过校验", "AI_SCHEMA_ERROR")
     status = "completed"
-    return { data: parsed.data, usage, model: completion.data.model || model }
+    const runId = safeLog({
+      task_type: input.taskType,
+      provider: config.provider,
+      model,
+      status,
+      duration_ms: Date.now() - startedAt,
+      input: input.logInput,
+      error_code: null,
+      prompt_version: input.promptVersion,
+      usage,
+    })
+    return { data: parsed.data, usage, model: completion.data.model || model, runId }
   } catch (error) {
     errorCode = error instanceof AiClientError ? error.code : error instanceof Error && error.name === "AbortError" ? "AI_TIMEOUT" : "AI_REQUEST_ERROR"
-    if (errorCode === "AI_TIMEOUT") throw new AiClientError("AI 请求超时", errorCode)
-    throw error
-  } finally {
-    clearTimeout(timeoutId)
     safeLog({
       task_type: input.taskType,
       provider: config.provider,
@@ -107,5 +114,9 @@ export async function createChatCompletion<T>(input: {
       prompt_version: input.promptVersion,
       usage,
     })
+    if (errorCode === "AI_TIMEOUT") throw new AiClientError("AI 请求超时", errorCode)
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
 }

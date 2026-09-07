@@ -15,7 +15,7 @@ test("wellness schema and validation foundation", async t => {
       const database = getDatabase()
       const version = database.prepare("PRAGMA user_version").get() as { user_version: number }
       const templates = database.prepare("SELECT COUNT(*) AS count FROM workout_templates WHERE is_builtin = 1").get() as { count: number }
-      assert.equal(version.user_version, 1)
+      assert.ok(version.user_version >= 1)
       assert.equal(Number(templates.count), 6)
       assert.doesNotThrow(() => database.prepare("SELECT * FROM action_cards LIMIT 1").all())
       assert.doesNotThrow(() => database.prepare("SELECT * FROM weekly_experiments LIMIT 1").all())

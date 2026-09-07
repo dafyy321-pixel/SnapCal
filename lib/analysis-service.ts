@@ -57,8 +57,20 @@ export class AnalysisService {
 export const analysisService = new AnalysisService()
 
 export function formatAnalysis(result: AnalysisRecord) {
+  const raw = result.raw_analysis_response && typeof result.raw_analysis_response === "object"
+    ? result.raw_analysis_response as Record<string, unknown>
+    : {}
+  const rawData = raw.data && typeof raw.data === "object" ? raw.data as Record<string, unknown> : raw
+  const items = Array.isArray(rawData.items) ? rawData.items : result.ingredients.map((name, index) => ({
+    id: `meal-item-${index + 1}`,
+    name,
+    confidence: result.confidence_score,
+    portionHint: null,
+    nutritionKnown: false,
+  }))
   return {
     id: result.id,
+    mode: "meal" as const,
     name: result.food_name,
     image: result.raw_image_url,
     confidence: result.confidence_score,
@@ -80,6 +92,8 @@ export function formatAnalysis(result: AnalysisRecord) {
     vitamin_d: result.vitamin_d,
     vitamin_e: result.vitamin_e,
     ingredients: result.ingredients,
+    items,
+    uncertainties: Array.isArray(rawData.uncertainties) ? rawData.uncertainties : ["照片识别无法确认精确份量"],
     portion_multiplier: result.portion_multiplier,
     created_at: result.created_at,
     updated_at: result.updated_at,

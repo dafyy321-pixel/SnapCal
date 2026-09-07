@@ -24,20 +24,24 @@ export async function POST(request: NextRequest) {
     const validation = await validateFile(image, DEFAULT_IMAGE_VALIDATION)
     if (!validation.isValid) throw new ValidationError("图片验证失败", validation.errors)
     const bytes = new Uint8Array(validation.sanitizedContent || await image.arrayBuffer())
-    const mock = process.env.USE_MOCK_ANALYSIS === "true"
+    const mock = process.env.USE_MOCK_ANALYSIS === "true" && process.env.NODE_ENV !== "production"
     const config = getAiConfig()
     const profile = localDb.getProfile()
     if (!mock && !config.configured) throw new AppError("AI 服务尚未配置", 503, "AI_NOT_CONFIGURED")
     if (!mock && !profile.ai_consent_at) throw new AppError("请先同意 AI 数据发送说明", 403, "AI_CONSENT_REQUIRED")
-    let recognized: FoodAssistItem[]
+    let recognized: { items: FoodAssistItem[]; uncertainties: string[]; ai_run_id: string | null }
     if (mock) {
-      recognized = [
-        { id: crypto.randomUUID(), name: "米饭", confidence: 88, portion_hint: null, nutrition_known: false },
-        { id: crypto.randomUUID(), name: "鸡蛋", confidence: 84, portion_hint: null, nutrition_known: false },
-      ]
+      recognized = {
+        items: [
+          { id: crypto.randomUUID(), name: "米饭", confidence: 88, portion_hint: null, nutrition_known: false },
+          { id: crypto.randomUUID(), name: "鸡蛋", confidence: 84, portion_hint: null, nutrition_known: false },
+        ],
+        uncertainties: ["开发测试识别结果"],
+        ai_run_id: null,
+      }
     } else {
       const base64Url = `data:${image.type};base64,${Buffer.from(bytes).toString("base64")}`
-      recognized = (await recognizeFoodInventory(base64Url, { context: input.context, image_bytes: bytes.length })).items
+      recognized = await recognizeFoodInventory(base64Url, { context: input.context, image_bytes: bytes.length })
     }
     const saved = await saveImage(bytes, image.type)
     try {
@@ -46,9 +50,11 @@ export async function POST(request: NextRequest) {
         workout_id: input.workout_id,
         minutes_until_workout: input.minutes_until_workout,
         image_url: saved.url,
-        recognized_items: recognized,
+        recognized_items: recognized.items,
+        uncertainties: recognized.uncertainties,
+        ai_run_id: recognized.ai_run_id,
       })
-      return successResponse({ session, uncertainties: mock ? ["开发测试识别结果"] : [] }, 201)
+      return successResponse({ session, uncertainties: recognized.uncertainties }, 201)
     } catch (error) {
       await deleteImage(saved.name)
       throw error

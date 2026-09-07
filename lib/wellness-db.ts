@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from "node:crypto"
 import type { SQLInputValue } from "node:sqlite"
 import { getDatabase } from "./local-db"
+import { localDateParts } from "./date-utils"
 import type {
   ActionCardRecord,
   BodyMetricRecord,
@@ -17,7 +18,10 @@ import type {
 
 function parseJson<T>(value: unknown, fallback: T): T {
   if (typeof value !== "string") return fallback
-  try { return JSON.parse(value) as T } catch { return fallback }
+  try { return JSON.parse(value) as T } catch (error) {
+    console.error("[Database] JSON field is damaged; using a safe default", error instanceof Error ? error.message : "unknown")
+    return fallback
+  }
 }
 
 function now() { return new Date().toISOString() }
@@ -97,6 +101,7 @@ function normalizeFoodAssist(row: Record<string, unknown>): FoodAssistRecord {
     ...row,
     recognized_items: parseJson(row.recognized_items, []),
     confirmed_items: parseJson(row.confirmed_items, []),
+    uncertainties: parseJson(row.uncertainties, []),
     primary_suggestion: parseJson(row.primary_suggestion, null),
     alternative_suggestion: parseJson(row.alternative_suggestion, null),
   } as unknown as FoodAssistRecord
@@ -256,7 +261,11 @@ export const wellnessDb = {
 
   getActiveAction(date: string): ActionCardRecord | null {
     const timestamp = now()
-    getDatabase().prepare("UPDATE action_cards SET status = 'expired', updated_at = ? WHERE status = 'active' AND valid_until <= ?").run(timestamp, timestamp)
+    // Expiration affects today's actionable card. Historical day views keep their
+    // recorded card available for review and feedback.
+    if (date === localDateParts().date) {
+      getDatabase().prepare("UPDATE action_cards SET status = 'expired', updated_at = ? WHERE status = 'active' AND valid_until <= ?").run(timestamp, timestamp)
+    }
     const row = getDatabase().prepare("SELECT * FROM action_cards WHERE card_date = ? AND status = 'active' LIMIT 1").get(date) as Record<string, unknown> | undefined
     return row ? normalizeAction(row) : null
   },
@@ -293,14 +302,14 @@ export const wellnessDb = {
     return (getDatabase().prepare("SELECT * FROM action_cards WHERE card_date BETWEEN ? AND ? ORDER BY created_at").all(startDate, endDate) as Record<string, unknown>[]).map(normalizeAction)
   },
 
-  createFoodAssist(input: { context: FoodAssistRecord["context"]; workout_id?: string | null; minutes_until_workout?: number | null; image_url: string; recognized_items: FoodAssistItem[]; ai_run_id?: string | null }) {
+  createFoodAssist(input: { context: FoodAssistRecord["context"]; workout_id?: string | null; minutes_until_workout?: number | null; image_url: string; recognized_items: FoodAssistItem[]; uncertainties?: string[]; ai_run_id?: string | null }) {
     const id = randomUUID()
     const timestamp = now()
     getDatabase().prepare(`INSERT INTO food_assist_sessions
-      (id, context, workout_id, minutes_until_workout, image_url, recognized_items, confirmed_items, status, ai_run_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, '[]', 'recognized', ?, ?, ?)`)
+      (id, context, workout_id, minutes_until_workout, image_url, recognized_items, confirmed_items, uncertainties, status, ai_run_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, '[]', ?, 'recognized', ?, ?, ?)`)
       .run(id, input.context, input.workout_id ?? null, input.minutes_until_workout ?? null, input.image_url,
-        JSON.stringify(input.recognized_items), input.ai_run_id ?? null, timestamp, timestamp)
+        JSON.stringify(input.recognized_items), JSON.stringify(input.uncertainties ?? []), input.ai_run_id ?? null, timestamp, timestamp)
     return this.getFoodAssist(id)!
   },
 
@@ -309,16 +318,16 @@ export const wellnessDb = {
     return row ? normalizeFoodAssist(row) : null
   },
 
-  updateFoodAssist(id: string, input: { confirmed_items?: FoodAssistItem[]; primary_suggestion?: FoodSuggestion; alternative_suggestion?: FoodSuggestion; status?: FoodAssistRecord["status"]; meal_id?: string }) {
+  updateFoodAssist(id: string, input: { confirmed_items?: FoodAssistItem[]; primary_suggestion?: FoodSuggestion; alternative_suggestion?: FoodSuggestion; status?: FoodAssistRecord["status"]; meal_id?: string; ai_run_id?: string | null }) {
     const current = this.getFoodAssist(id)
     if (!current) return null
     const confirmed = input.confirmed_items ?? current.confirmed_items
     const primary = input.primary_suggestion ?? current.primary_suggestion
     const alternative = input.alternative_suggestion ?? current.alternative_suggestion
     const status = input.status ?? current.status
-    getDatabase().prepare(`UPDATE food_assist_sessions SET confirmed_items = ?, primary_suggestion = ?, alternative_suggestion = ?, status = ?, meal_id = ?, updated_at = ? WHERE id = ?`)
+    getDatabase().prepare(`UPDATE food_assist_sessions SET confirmed_items = ?, primary_suggestion = ?, alternative_suggestion = ?, status = ?, meal_id = ?, ai_run_id = ?, updated_at = ? WHERE id = ?`)
       .run(JSON.stringify(confirmed), primary ? JSON.stringify(primary) : null, alternative ? JSON.stringify(alternative) : null,
-        status, input.meal_id ?? current.meal_id, now(), id)
+        status, input.meal_id ?? current.meal_id, input.ai_run_id === undefined ? current.ai_run_id : input.ai_run_id, now(), id)
     return this.getFoodAssist(id)
   },
 
