@@ -1,14 +1,12 @@
-# SnapCal - AI 辅助的饮食与训练记录应用
-
 <div align="center">
 
-![SnapCal Logo](./public/logo.png)
+<img src="./public/logo.png" alt="SnapCal Logo" width="120" />
 
-**SnapCal** 是一款面向个人使用的健康记录应用。拍照记录一餐，记下训练和身体状态，在同一条时间线上回顾每天的变化。
+<h1>SnapCal</h1>
 
-> 🎯 **关键词**：AI 食物识别 | 营养记录 | 训练管理 | 状态打卡 | 身体指标 | 本地存储 | Next.js | React | TypeScript
+<p>AI 辅助的饮食与训练记录应用</p>
 
-[功能特性](#features) • [快速开始](#quick-start) • [AI 配置](#ai-configuration) • [项目结构](#project-structure) • [部署指南](#deployment) • [API 文档](#api-documentation)
+拍照记录一餐，记下训练和身体状态，在同一条时间线上回顾每天的变化。
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2-blue?style=flat-square&logo=react)](https://react.dev/)
@@ -16,6 +14,8 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4.1-38bdf8?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-local-003B57?style=flat-square&logo=sqlite)](https://www.sqlite.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-%3E%3D22.13-339933?style=flat-square&logo=node.js)](https://nodejs.org/)
+
+[功能特性](#features) • [快速开始](#quick-start) • [AI 配置](#ai-configuration) • [项目结构](#project-structure) • [部署指南](#deployment) • [API 文档](#api-documentation)
 
 </div>
 
