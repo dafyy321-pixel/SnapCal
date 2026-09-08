@@ -55,7 +55,7 @@ export function buildInsights(timeframe: InsightTimeframe, endDate = localDatePa
       strength_sets: completedSets.filter(set => set.reps != null || set.weight_kg != null).length,
       volume_kg_reps: Math.round(completedSets.reduce((sum, set) => sum + (set.weight_kg || 0) * (set.reps || 0), 0) * 10) / 10,
       cardio_minutes: Math.round(completed.filter(workout => workout.workout_type === "cardio").reduce((sum, workout) => sum + (workout.duration_minutes || 0), 0) * 10) / 10,
-      cardio_distance_meters: completed.filter(workout => workout.workout_type === "cardio").flatMap(workout => workout.exercises).flatMap(exercise => exercise.sets).reduce((sum, set) => sum + (set.distance_meters || 0), 0),
+      cardio_distance_meters: completed.filter(workout => workout.workout_type === "cardio").flatMap(workout => workout.exercises).flatMap(exercise => exercise.sets).filter(set => set.completed).reduce((sum, set) => sum + (set.distance_meters || 0), 0),
       template_completion_rate: templateSessions.length ? Math.round(templateSessions.filter(workout => workout.status === "completed").length / templateSessions.length * 100) : null,
       average_effort: average(completed.flatMap(workout => workout.perceived_effort == null ? [] : [workout.perceived_effort])),
     },

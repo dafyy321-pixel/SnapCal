@@ -105,6 +105,19 @@ test("insights and weekly experiments", async t => {
       assert.equal("health_score" in result, false)
     })
 
+    await t.test("cardio distance includes only completed sets in completed sessions", () => {
+      const input = { session_date: endDate, session_time: "12:00:00", title: "跑步", workout_type: "cardio" as const, status: "completed" as const, source: "manual" as const,
+        exercises: [{ order_index: 0, name: "跑步", category: "cardio" as const, sets: [
+          { set_index: 0, set_type: "working" as const, distance_meters: 1000, completed: true },
+          { set_index: 1, set_type: "working" as const, distance_meters: 5000, completed: false },
+        ] }] }
+      const completed = wellnessDb.createWorkout(input)
+      const planned = wellnessDb.createWorkout({ ...input, status: "planned" })
+      assert.equal(buildInsights("7d", endDate).training.cardio_distance_meters, 1000)
+      wellnessDb.deleteWorkout(completed.id)
+      wellnessDb.deleteWorkout(planned.id)
+    })
+
     await t.test("uses observational rather than causal wording", () => {
       const text = buildInsights("7d", endDate).observations.join(" ")
       assert.match(text, /同期出现|样本较少/)
