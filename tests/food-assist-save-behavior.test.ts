@@ -25,7 +25,7 @@ test("actual food assistant page saves a real draft and retries a lost link resp
   let links = 0
   let destination = ""
   globalThis.fetch = async (url, init) => {
-    const request = new NextRequest(`http://localhost${url}`, init)
+    const request = new NextRequest(`http://localhost${url}`, { ...init, signal: init?.signal ?? undefined })
     if (String(url).endsWith("/meal-draft")) return draftRoute.POST(request, context)
     if (url === "/api/meals") { creates++; return mealsRoute.POST(request) }
     if (init?.method === "PATCH") {

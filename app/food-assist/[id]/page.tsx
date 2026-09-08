@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { Check, Save, Sparkles } from "lucide-react"
 import { useParams, useRouter } from "next/navigation"
 import { MobilePageHeader } from "@/components/mobile-page-header"
@@ -20,7 +20,7 @@ export default function FoodAssistPage() {
   const [items, setItems] = useState<FoodAssistItem[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [draft, setDraft] = useState<MealDraft | null>(null)
-  const createdMealId = useRef<string | null>(null)
+  const [createdMealId, setCreatedMealId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
   useEffect(() => {
@@ -41,12 +41,14 @@ export default function FoodAssistPage() {
   }
   const saveMeal = async () => {
     if (!draft || [draft.calories, draft.protein, draft.carbs, draft.fats].some(value => value == null)) { setError("请先确认卡路里和三项宏量营养数据"); return }
-    if (!createdMealId.current) {
+    let mealId = createdMealId
+    if (!mealId) {
       const meal = await requestData<{ meal: { id: string } }>("/api/meals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(mealDraftInput(draft)) })
-      createdMealId.current = meal.meal.id
+      mealId = meal.meal.id
+      setCreatedMealId(mealId)
     }
-    await requestData(`/api/food-assist/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "saved", meal_id: createdMealId.current }) })
-    router.replace(`/meal/${createdMealId.current}`)
+    await requestData(`/api/food-assist/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "saved", meal_id: mealId }) })
+    router.replace(`/meal/${mealId}`)
   }
   const run = async (operation: () => Promise<void>) => {
     if (busy) return
@@ -57,9 +59,9 @@ export default function FoodAssistPage() {
   if (!session) return <div className="min-h-screen"><MobilePageHeader title="食物助手" /><p className="p-6 text-center text-muted-foreground">{error || "加载中…"}</p></div>
   return <div className="min-h-screen bg-muted/30 pb-8"><MobilePageHeader title="食物搭配助手" description="先确认识别结果，再决定是否记录" /><main className="mx-auto max-w-md space-y-4 p-4">
     <div className="relative aspect-video overflow-hidden rounded-xl bg-black"><Image src={session.image_url} alt="待确认的食物" fill sizes="448px" className="object-contain" /></div>
-    <Card className="gap-3 p-4"><div><h2 className="font-medium">确认可用食材</h2><p className="text-xs text-muted-foreground">可以取消、改名；照片无法确认精确克数。</p></div>{items.map((item, index) => <label key={item.id} className="grid grid-cols-[24px_1fr_auto] items-center gap-2 rounded-lg border p-2"><input type="checkbox" checked={selected.includes(item.id)} onChange={event => setSelected(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} className="size-5" /><Input aria-label={`食材 ${index + 1} 名称`} value={item.name} onChange={event => setItems(previous => previous.map(current => current.id === item.id ? { ...current, name: event.target.value } : current))} /><span className="text-xs text-muted-foreground">{Math.round(item.confidence)}%</span></label>)}<Button onClick={() => run(confirmItems)} disabled={busy || !!createdMealId.current || !selected.length}><Check />确认并生成搭配</Button></Card>
-    {session.primary_suggestion && <><Card className="gap-2 border-primary/30 p-4"><span className="text-xs font-medium text-primary">主方案</span><h2 className="font-semibold">{session.primary_suggestion.title}</h2><p className="text-sm text-muted-foreground">{session.primary_suggestion.rationale}</p>{session.primary_suggestion.cautions.map(item => <p key={item} className="text-xs text-amber-700">{item}</p>)}</Card><Card className="gap-2 p-4"><span className="text-xs text-muted-foreground">替代方案</span><h2 className="font-semibold">{session.alternative_suggestion?.title}</h2><p className="text-sm text-muted-foreground">{session.alternative_suggestion?.rationale}</p></Card><Button className="w-full" disabled={busy || !!createdMealId.current} onClick={() => run(createDraft)}><Sparkles />记录已吃</Button></>}
-    {draft && <Card className="gap-4 p-4"><div><h2 className="font-semibold">确认餐食草稿</h2><p className="text-xs text-muted-foreground">营养值不会仅凭库存照片自动确定，请确认后保存。</p></div><Input disabled={busy || !!createdMealId.current} aria-label="餐食名称" value={draft.meal_name} onChange={event => setDraft({ ...draft, meal_name: event.target.value })} /><fieldset disabled={busy || !!createdMealId.current} className="grid grid-cols-2 gap-3"><label className="text-sm">日期<Input type="date" value={draft.meal_date} onChange={event => setDraft({ ...draft, meal_date: event.target.value })} /></label><label className="text-sm">餐别<select className="h-9 w-full rounded-md border bg-background px-3" value={draft.meal_type} onChange={event => setDraft({ ...draft, meal_type: event.target.value as MealDraft["meal_type"] })}><option value="breakfast">早餐</option><option value="lunch">午餐</option><option value="dinner">晚餐</option><option value="snack">加餐</option></select></label>{(["calories", "protein", "carbs", "fats"] as const).map(key => <label key={key} className="text-sm">{{ calories: "卡路里 kcal", protein: "蛋白质 g", carbs: "碳水 g", fats: "脂肪 g" }[key]}<Input required type="number" min="0" step="0.1" value={draft[key] ?? ""} onChange={event => setDraft({ ...draft, [key]: event.target.value ? Number(event.target.value) : null })} /></label>)}</fieldset><Button disabled={busy} onClick={() => run(saveMeal)}><Save />确认保存餐食</Button></Card>}
+    <Card className="gap-3 p-4"><div><h2 className="font-medium">确认可用食材</h2><p className="text-xs text-muted-foreground">可以取消、改名；照片无法确认精确克数。</p></div>{items.map((item, index) => <label key={item.id} className="grid grid-cols-[24px_1fr_auto] items-center gap-2 rounded-lg border p-2"><input type="checkbox" checked={selected.includes(item.id)} onChange={event => setSelected(previous => event.target.checked ? [...previous, item.id] : previous.filter(id => id !== item.id))} className="size-5" /><Input aria-label={`食材 ${index + 1} 名称`} value={item.name} onChange={event => setItems(previous => previous.map(current => current.id === item.id ? { ...current, name: event.target.value } : current))} /><span className="text-xs text-muted-foreground">{Math.round(item.confidence)}%</span></label>)}<Button onClick={() => run(confirmItems)} disabled={busy || !!createdMealId || !selected.length}><Check />确认并生成搭配</Button></Card>
+    {session.primary_suggestion && <><Card className="gap-2 border-primary/30 p-4"><span className="text-xs font-medium text-primary">主方案</span><h2 className="font-semibold">{session.primary_suggestion.title}</h2><p className="text-sm text-muted-foreground">{session.primary_suggestion.rationale}</p>{session.primary_suggestion.cautions.map(item => <p key={item} className="text-xs text-amber-700">{item}</p>)}</Card><Card className="gap-2 p-4"><span className="text-xs text-muted-foreground">替代方案</span><h2 className="font-semibold">{session.alternative_suggestion?.title}</h2><p className="text-sm text-muted-foreground">{session.alternative_suggestion?.rationale}</p></Card><Button className="w-full" disabled={busy || !!createdMealId} onClick={() => run(createDraft)}><Sparkles />记录已吃</Button></>}
+    {draft && <Card className="gap-4 p-4"><div><h2 className="font-semibold">确认餐食草稿</h2><p className="text-xs text-muted-foreground">营养值不会仅凭库存照片自动确定，请确认后保存。</p></div><Input disabled={busy || !!createdMealId} aria-label="餐食名称" value={draft.meal_name} onChange={event => setDraft({ ...draft, meal_name: event.target.value })} /><fieldset disabled={busy || !!createdMealId} className="grid grid-cols-2 gap-3"><label className="text-sm">日期<Input type="date" value={draft.meal_date} onChange={event => setDraft({ ...draft, meal_date: event.target.value })} /></label><label className="text-sm">餐别<select className="h-9 w-full rounded-md border bg-background px-3" value={draft.meal_type} onChange={event => setDraft({ ...draft, meal_type: event.target.value as MealDraft["meal_type"] })}><option value="breakfast">早餐</option><option value="lunch">午餐</option><option value="dinner">晚餐</option><option value="snack">加餐</option></select></label>{(["calories", "protein", "carbs", "fats"] as const).map(key => <label key={key} className="text-sm">{{ calories: "卡路里 kcal", protein: "蛋白质 g", carbs: "碳水 g", fats: "脂肪 g" }[key]}<Input required type="number" min="0" step="0.1" value={draft[key] ?? ""} onChange={event => setDraft({ ...draft, [key]: event.target.value ? Number(event.target.value) : null })} /></label>)}</fieldset><Button disabled={busy} onClick={() => run(saveMeal)}><Save />确认保存餐食</Button></Card>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </main></div>
 }
