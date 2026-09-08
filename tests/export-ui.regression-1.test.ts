@@ -1,14 +1,19 @@
+import "./dom-setup"
 import test from "node:test"
 import assert from "node:assert/strict"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
+import { createElement } from "react"
+import { render, cleanup } from "@testing-library/react"
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime"
+import { PathnameContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime"
+import ExportPage from "../app/profile/export/page"
 
-// Regression: ISSUE-001 — controlled export selects rendered blank until opened
-// Found by /qa on 2026-09-04
-// Report: .gstack/qa-reports/qa-report-localhost-2026-09-04.md
-test("export select triggers render their controlled labels before interaction", () => {
-  const source = readFileSync(join(process.cwd(), "app/profile/export/page.tsx"), "utf8")
-  assert.match(source, /<SelectValue>\{rangeLabels\[range\]\}<\/SelectValue>/)
-  assert.match(source, /<SelectValue>\{formatLabels\[format\]\}<\/SelectValue>/)
-  assert.match(source, /<SelectValue>\{categoryLabels\[category\]\}<\/SelectValue>/)
+test("export displays selected labels and explains its recovery scope", () => {
+  try {
+    const ui = render(createElement(AppRouterContext.Provider, { value: { back() {}, prefetch() {} } as never }, createElement(PathnameContext.Provider, { value: "/profile/export" }, createElement(ExportPage))))
+    assert.deepEqual(ui.getAllByRole("combobox").map(node => node.textContent), ["全部数据", "JSON（数据导出）"])
+    assert.match(ui.container.textContent!, /图片文件、自定义训练模板和食物助手会话不在导出范围内/)
+    assert.match(ui.container.textContent!, /当前不支持 JSON 导入恢复/)
+    assert.match(ui.container.textContent!, /停止应用后复制整个 data 目录/)
+    assert.doesNotMatch(ui.container.textContent!, /JSON（完整备份）/)
+  } finally { cleanup() }
 })
