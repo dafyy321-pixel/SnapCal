@@ -31,7 +31,6 @@ function CheckInContent() {
   const ready = loadedDate === date && !busy
   useEffect(() => {
     let cancelled = false
-    setLoadedDate(null); setMessage("")
     fetch(`/api/checkins/${date}`).then(async response => {
       if (cancelled) return
       if (response.status === 404) {
@@ -56,8 +55,8 @@ function CheckInContent() {
     if (!values.energy || !values.hunger || !values.soreness) { setMessage("请完成精力、饥饿和酸痛三项"); return }
     setBusy(true)
     try {
-    await requestData(`/api/checkins/${date}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(values) })
-    setExists(true); setMessage("今日状态已保存")
+      await requestData(`/api/checkins/${date}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(values) })
+      setExists(true); setMessage("今日状态已保存")
     } catch (error) { setMessage(error instanceof Error ? error.message : "保存失败，请重试") }
     finally { setBusy(false) }
   }
@@ -65,16 +64,16 @@ function CheckInContent() {
     if (!ready) return
     setMessage(""); setBusy(true)
     try {
-    await requestData(`/api/checkins/${date}`, { method: "DELETE" })
-    setExists(false); setValues({ energy: null, hunger: null, soreness: null, sleep_hours: null, sleep_quality: null, notes: "" }); setMessage("记录已删除")
+      await requestData(`/api/checkins/${date}`, { method: "DELETE" })
+      setExists(false); setValues({ energy: null, hunger: null, soreness: null, sleep_hours: null, sleep_quality: null, notes: "" }); setMessage("记录已删除")
     } catch (error) { setMessage(error instanceof Error ? error.message : "删除失败，请重试") }
     finally { setBusy(false) }
   }
   return <div className="min-h-screen bg-muted/30 pb-8"><MobilePageHeader title="今日状态" description="三次点击即可完成必填项" /><main className="mx-auto max-w-md space-y-4 p-4">
-    <label className="block space-y-1 text-sm font-medium">日期<Input type="date" disabled={busy} value={date} onChange={event => setDate(event.target.value)} /></label>
+    <label className="block space-y-1 text-sm font-medium">日期<Input type="date" disabled={busy} value={date} onChange={event => { setLoadedDate(null); setMessage(""); setDate(event.target.value) }} /></label>
     {(["energy", "hunger", "soreness"] as const).map(key => <Card key={key} className="gap-3 p-4"><fieldset><legend className="mb-3 font-medium">{{ energy: "精力", hunger: "饥饿", soreness: "酸痛" }[key]} <span className="text-destructive">*</span></legend><div className="grid grid-cols-5 gap-2">{([1, 2, 3, 4, 5] as CheckinScore[]).map(score => <button key={score} type="button" aria-pressed={values[key] === score} onClick={() => setValues({ ...values, [key]: score })} className={`min-h-14 rounded-lg border px-1 text-xs ${values[key] === score ? "border-primary bg-primary text-primary-foreground" : "bg-card"}`}><span className="block text-base font-semibold">{score}</span>{labels[key][score - 1]}</button>)}</div></fieldset></Card>)}
     <Card className="gap-4 p-4"><h2 className="font-medium">睡眠（可选）</h2><div className="grid grid-cols-2 gap-3"><label className="space-y-1 text-sm">时长（小时）<Input type="number" min="0" max="24" step="0.5" value={values.sleep_hours ?? ""} onChange={event => setValues({ ...values, sleep_hours: event.target.value ? Number(event.target.value) : null })} /></label><label className="space-y-1 text-sm">质量 1～5<Input type="number" min="1" max="5" value={values.sleep_quality ?? ""} onChange={event => setValues({ ...values, sleep_quality: event.target.value ? Number(event.target.value) as CheckinScore : null })} /></label></div><label className="space-y-1 text-sm">备注<Textarea maxLength={500} value={values.notes} onChange={event => setValues({ ...values, notes: event.target.value })} /></label></Card>
-    {loadedDate !== date && <Button variant="outline" onClick={() => setReload(value => value + 1)}>重新加载</Button>}{message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
+    {loadedDate !== date && <Button variant="outline" onClick={() => { setLoadedDate(null); setMessage(""); setReload(value => value + 1) }}>重新加载</Button>}{message && <p role="status" className="text-sm text-muted-foreground">{message}</p>}
     <div className="grid grid-cols-2 gap-2">{exists && <Button variant="destructive" disabled={!ready} onClick={remove}><Trash2 />删除</Button>}<Button className={exists ? "" : "col-span-2"} disabled={!ready} onClick={save}><Save />保存状态</Button></div>
   </main></div>
 }
