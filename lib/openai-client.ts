@@ -1,5 +1,7 @@
 import { z, type ZodType } from "zod"
+import { createHash } from "node:crypto"
 import { getAiConfig } from "./ai-config"
+import { AppError } from "./error-handler"
 import { wellnessDb } from "./wellness-db"
 
 export type ChatMessage = {
@@ -10,9 +12,9 @@ export type ChatMessage = {
   >
 }
 
-export class AiClientError extends Error {
+export class AiClientError extends AppError {
   constructor(message: string, public code: string, public status?: number) {
-    super(message)
+    super(message, code === "AI_RATE_LIMITED" || code === "AI_BUSY" ? 429 : 502, code)
     this.name = "AiClientError"
   }
 }
@@ -49,7 +51,7 @@ function safeLog(input: Parameters<typeof wellnessDb.logAiRun>[0]) {
   }
 }
 
-export async function createChatCompletion<T>(input: {
+type CompletionInput<T> = {
   capability: "vision" | "text"
   taskType: string
   promptVersion: string
@@ -57,7 +59,24 @@ export async function createChatCompletion<T>(input: {
   schema: ZodType<T, z.ZodTypeDef, unknown>
   logInput: unknown
   fetchImpl?: typeof fetch
-}) {
+}
+
+type CompletionResult<T> = { data: T; usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined; model: string; runId: string | null }
+const shared = globalThis as typeof globalThis & { snapcalAiRequests?: { sentAt: number[]; active: Map<string, Promise<CompletionResult<unknown>>> } }
+const requests = shared.snapcalAiRequests ??= { sentAt: [], active: new Map() }
+
+export function createChatCompletion<T>(input: CompletionInput<T>): Promise<CompletionResult<T>> {
+  const config = getAiConfig()
+  const key = createHash("sha256").update(JSON.stringify([config.endpoint, config.apiKey, config.visionModel, config.textModel, input.taskType, input.promptVersion, input.messages])).digest("hex")
+  const existing = requests.active.get(key)
+  if (existing) return existing as Promise<CompletionResult<T>>
+  if (requests.active.size >= 2) return Promise.reject(new AiClientError("AI 正忙，请稍后重试", "AI_BUSY"))
+  const pending = performChatCompletion(input).finally(() => requests.active.delete(key))
+  requests.active.set(key, pending)
+  return pending
+}
+
+async function performChatCompletion<T>(input: CompletionInput<T>): Promise<CompletionResult<T>> {
   const config = getAiConfig()
   const model = input.capability === "vision" ? config.visionModel : config.textModel
   if (!config.apiKey || !model) throw new AiClientError("AI 服务尚未配置", "AI_NOT_CONFIGURED")
@@ -71,6 +90,10 @@ export async function createChatCompletion<T>(input: {
   try {
     let response: Response | null = null
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const now = Date.now()
+      requests.sentAt = requests.sentAt.filter(timestamp => timestamp > now - 60 * 60 * 1000)
+      if (requests.sentAt.length >= 20) throw new AiClientError("AI 每小时最多发送 20 次请求，请稍后重试", "AI_RATE_LIMITED")
+      requests.sentAt.push(now)
       response = await (input.fetchImpl || fetch)(config.endpoint, {
         method: "POST",
         signal: controller.signal,
