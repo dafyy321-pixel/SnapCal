@@ -26,7 +26,9 @@ Both default data paths are ignored by Git. Back up the complete `data` director
 
 ## Food analysis
 
-`POST /api/analyze` uses `DOUBAO_API_KEY` when configured. Without it, the route returns a deterministic local analysis so the complete application flow remains available offline.
+`POST /api/analyze` and food inventory recognition use `OPENAI_API_KEY` with `OPENAI_MODEL` or `OPENAI_VISION_MODEL`; text suggestions use `OPENAI_TEXT_MODEL` or the base model. `DOUBAO_API_KEY` remains a legacy fallback. Missing configuration returns `AI_NOT_CONFIGURED`. Current user consent is required before every external send, including retries.
+
+Offline recording, statistics and local rule suggestions remain available. Mock recognition requires explicit `USE_MOCK_ANALYSIS=true` in development/tests and is disabled in production. Run `npm run env:check` to inspect configuration without printing secrets.
 
 The server validates uploaded JPEG, PNG, WebP, and GIF files, stores them locally, and caches analysis results by SHA-256 hash.
 

@@ -69,7 +69,7 @@ test("SnapCal local data regression suite", async t => {
   const { closeDatabase, localDb } = await import("../lib/local-db")
   const { analysisService } = await import("../lib/analysis-service")
   const { createMealSchema, dateSchema, timeSchema } = await import("../lib/validation-schemas")
-    const { canReuseAnalysis, shouldUseMockAnalysis } = await import("../lib/analysis-mode")
+    const { canReuseAnalysis } = await import("../lib/analysis-mode")
     const { currentStreak } = await import("../lib/date-utils")
     const { contentSecurityPolicy } = await import("../lib/security-headers")
     const { calculateAnalytics, getDateRange } = await import("../app/api/analytics/route")
@@ -165,13 +165,6 @@ test("SnapCal local data regression suite", async t => {
       const input = new Date(2026, 8, 2, 15)
       getDateRange("本周", input)
       assert.equal(input.getHours(), 15)
-    })
-
-    await t.test("uses local analysis automatically when no API key exists", () => {
-      delete process.env.USE_MOCK_ANALYSIS
-      assert.equal(shouldUseMockAnalysis(false, undefined), true)
-      assert.equal(shouldUseMockAnalysis(false, "configured"), false)
-      assert.equal(shouldUseMockAnalysis(true, "configured"), true)
     })
 
     await t.test("does not reuse an analysis from another model or forced request", () => {
