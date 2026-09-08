@@ -1,8 +1,8 @@
 const LOCAL_TIME_ZONE = process.env.NEXT_PUBLIC_SNAPCAL_TIME_ZONE || process.env.SNAPCAL_TIME_ZONE || "Asia/Shanghai"
 
-export function localDateParts(date = new Date()): { date: string; time: string } {
+export function localDateParts(date = new Date(), timeZone = LOCAL_TIME_ZONE): { date: string; time: string } {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: LOCAL_TIME_ZONE,
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -16,6 +16,19 @@ export function localDateParts(date = new Date()): { date: string; time: string 
     date: `${values.year}-${values.month}-${values.day}`,
     time: `${values.hour}:${values.minute}:${values.second}`,
   }
+}
+
+/** First instant after this calendar date, including DST and midnight offset changes. */
+export function nextLocalDayStart(date: string, timeZone = LOCAL_TIME_ZONE): string {
+  const utc = Date.parse(`${date}T00:00:00Z`)
+  let low = utc - 2 * 86400000
+  let high = utc + 3 * 86400000
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2)
+    if (localDateParts(new Date(middle), timeZone).date <= date) low = middle + 1
+    else high = middle
+  }
+  return new Date(low).toISOString()
 }
 
 export function parseLocalDate(value: string): Date {

@@ -85,7 +85,7 @@ test("Asia/Shanghai midnight keeps meals, workouts and actions on the local date
     assert.equal(localDb.listMeals({ date: "2026-09-04" }).total, 1)
     assert.equal(wellnessDb.listWorkouts({ date: "2026-09-04" }).length, 1)
     assert.equal(wellnessDb.getActiveAction("2026-09-04")?.card_date, "2026-09-04")
-    assert.equal(action.valid_until, "2026-09-04T15:59:59.000Z")
+    assert.equal(action.valid_until, "2026-09-04T16:00:00.000Z")
   } finally {
     closeDatabase()
     rmSync(directory, { recursive: true, force: true })

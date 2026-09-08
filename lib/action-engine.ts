@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { getAiConfig } from "./ai-config"
-import { formatLocalDate, localDateParts, parseLocalDate } from "./date-utils"
+import { formatLocalDate, localDateParts, nextLocalDayStart, parseLocalDate } from "./date-utils"
 import { localDb, type MealRecord } from "./local-db"
 import { createChatCompletion } from "./openai-client"
 import { wellnessDb } from "./wellness-db"
@@ -28,7 +28,7 @@ function minutes(time: string) {
 }
 
 function validUntil(date: string) {
-  return new Date(`${date}T23:59:59+08:00`).toISOString()
+  return nextLocalDayStart(date)
 }
 
 function candidate(input: Omit<ActionCandidate, "valid_until" | "payload"> & { date: string; payload?: Record<string, unknown> }): ActionCandidate {
