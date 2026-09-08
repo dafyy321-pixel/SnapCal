@@ -4,7 +4,10 @@ export function assertWriteOrigin(request: Request) {
   if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return
   const origin = request.headers.get("origin")
   const site = request.headers.get("sec-fetch-site")
-  if ((origin !== null && origin !== new URL(request.url).origin) || (!origin && site && site !== "same-origin" && site !== "none")) {
+  // Next can normalize a loopback URL to localhost; Host retains the browser's actual authority.
+  const url = new URL(request.url)
+  const trustedOrigin = `${url.protocol}//${request.headers.get("host") || url.host}`
+  if ((origin !== null && origin !== trustedOrigin) || (!origin && site && site !== "same-origin" && site !== "none")) {
     throw new AppError("不允许跨来源修改本地数据", 403, "UNTRUSTED_ORIGIN")
   }
 }

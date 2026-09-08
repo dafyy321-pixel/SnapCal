@@ -16,6 +16,10 @@ test("write requests require the complete origin and the endpoint content type",
   assert.equal(proxy(new NextRequest("http://localhost:3000/api/meals/123", { method: "DELETE", headers: { "sec-fetch-site": "same-site" } })).status, 403)
   assert.equal(proxy(new NextRequest("http://localhost:3000/api/food-assist", { method: "POST", body: new FormData(), headers: { origin: "http://localhost:3000" } })).status, 200)
   assert.equal(proxy(new NextRequest("http://localhost:3000/api/day?date=2026-09-08")).status, 200)
+  for (const origin of ["http://127.0.0.1:3000", "http://localhost:3000"]) {
+    const normalized = new NextRequest("http://localhost:3000/api/actions/generate", { method: "POST", headers: { host: "127.0.0.1:3000", origin, "content-type": "application/json" } })
+    assert.equal(proxy(normalized).status, origin.includes("127.0.0.1") ? 200 : 403)
+  }
   // The actual JSON handler also rejects before any database or AI work.
   const response = await POST(new Request("http://localhost:3000/api/actions/generate", { method: "POST", body: "{}", headers: { origin: "http://localhost:3001", "content-type": "text/plain" } }))
   assert.equal(response.status, 403)
