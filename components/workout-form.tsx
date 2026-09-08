@@ -18,7 +18,7 @@ export function WorkoutForm({ initial, onSubmit, submitLabel = "保存训练", b
   submitLabel?: string
   busy?: boolean
 }) {
-  const [value, setValue] = useState(initial)
+  const [value, setValue] = useState(() => ({ ...initial, exercises: initial.exercises.map(exercise => ({ ...exercise, editId: crypto.randomUUID() })) }))
   const [error, setError] = useState("")
   const updateSet = (exerciseIndex: number, setIndex: number, patch: Partial<WorkoutSetInput>) => {
     setValue(previous => ({
@@ -32,7 +32,7 @@ export function WorkoutForm({ initial, onSubmit, submitLabel = "保存训练", b
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     setError("")
-    try { await onSubmit({ ...value, exercises: renumberExercises(value.exercises) }) } catch (cause) { setError(cause instanceof Error ? cause.message : "保存失败") }
+    try { await onSubmit({ ...value, exercises: renumberExercises(value.exercises.map(({ editId, ...exercise }) => { void editId; return exercise })) }) } catch (cause) { setError(cause instanceof Error ? cause.message : "保存失败") }
   }
   return (
     <form onSubmit={submit} className="space-y-4">
@@ -50,7 +50,7 @@ export function WorkoutForm({ initial, onSubmit, submitLabel = "保存训练", b
       </Card>
 
       {value.exercises.map((exercise, exerciseIndex) => (
-        <Card key={`${exerciseIndex}-${exercise.name}`} className="gap-3 p-4">
+        <Card key={exercise.editId} className="gap-3 p-4">
           <div className="flex items-center gap-2">
             <Input aria-label={`动作 ${exerciseIndex + 1} 名称`} required value={exercise.name} onChange={event => setValue(previous => ({ ...previous, exercises: previous.exercises.map((item, index) => index === exerciseIndex ? { ...item, name: event.target.value } : item) }))} />
             <Button type="button" size="icon" variant="ghost" aria-label="上移动作" disabled={exerciseIndex === 0} onClick={() => setValue(previous => { const next = [...previous.exercises]; [next[exerciseIndex - 1], next[exerciseIndex]] = [next[exerciseIndex], next[exerciseIndex - 1]]; return { ...previous, exercises: next } })}><ArrowUp /></Button>
@@ -70,7 +70,7 @@ export function WorkoutForm({ initial, onSubmit, submitLabel = "保存训练", b
           <Button type="button" variant="outline" onClick={() => setValue(previous => ({ ...previous, exercises: previous.exercises.map((item, index) => index === exerciseIndex ? { ...item, sets: [...item.sets, { set_index: item.sets.length, set_type: "working", reps: null, weight_kg: null, duration_seconds: null, distance_meters: null, rpe: null, completed: false }] } : item) }))}><Plus />添加一组</Button>
         </Card>
       ))}
-      <Button type="button" variant="outline" className="w-full" onClick={() => setValue(previous => ({ ...previous, exercises: [...previous.exercises, { order_index: previous.exercises.length, name: "新动作", category: previous.workout_type, muscle_group: null, notes: null, sets: [{ set_index: 0, set_type: "working", reps: null, weight_kg: null, duration_seconds: null, distance_meters: null, rpe: null, completed: false }] }] }))}><Plus />添加动作</Button>
+      <Button type="button" variant="outline" className="w-full" onClick={() => setValue(previous => ({ ...previous, exercises: [...previous.exercises, { editId: crypto.randomUUID(), order_index: previous.exercises.length, name: "新动作", category: previous.workout_type, muscle_group: null, notes: null, sets: [{ set_index: 0, set_type: "working", reps: null, weight_kg: null, duration_seconds: null, distance_meters: null, rpe: null, completed: false }] }] }))}><Plus />添加动作</Button>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <Button type="submit" disabled={busy} className="h-12 w-full">{busy ? "保存中…" : submitLabel}</Button>
     </form>
