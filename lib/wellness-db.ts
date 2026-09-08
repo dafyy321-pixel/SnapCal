@@ -116,18 +116,46 @@ function normalizeExperiment(row: Record<string, unknown>): WeeklyExperimentReco
   } as WeeklyExperimentRecord
 }
 
+type WorkoutQuery = { date?: string; startDate?: string; endDate?: string; status?: string; type?: string; limit?: number; offset?: number }
+
+function workoutFilter(options: WorkoutQuery) {
+  const conditions: string[] = []
+  const values: SQLInputValue[] = []
+  for (const [key, clause] of [["date", "session_date = ?"], ["startDate", "session_date >= ?"], ["endDate", "session_date <= ?"], ["status", "status = ?"], ["type", "workout_type = ?"]] as const) {
+    if (options[key]) { conditions.push(clause); values.push(options[key]!) }
+  }
+  return { where: conditions.length ? `WHERE ${conditions.join(" AND ")}` : "", values }
+}
+
 export const wellnessDb = {
-  listWorkouts(options: { date?: string; startDate?: string; endDate?: string; status?: string; type?: string } = {}) {
-    const conditions: string[] = []
-    const values: SQLInputValue[] = []
-    if (options.date) { conditions.push("session_date = ?"); values.push(options.date) }
-    if (options.startDate) { conditions.push("session_date >= ?"); values.push(options.startDate) }
-    if (options.endDate) { conditions.push("session_date <= ?"); values.push(options.endDate) }
-    if (options.status) { conditions.push("status = ?"); values.push(options.status) }
-    if (options.type) { conditions.push("workout_type = ?"); values.push(options.type) }
-    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""
-    const rows = getDatabase().prepare(`SELECT id FROM workout_sessions ${where} ORDER BY session_date DESC, session_time DESC`).all(...values) as Array<{ id: string }>
-    return rows.map(row => getWorkout(row.id)!)
+  listWorkouts(options: WorkoutQuery = {}) {
+    const { where, values } = workoutFilter(options)
+    const order = "ORDER BY session_date DESC, session_time DESC, id DESC"
+    const selection = `SELECT id FROM workout_sessions ${where} ${order} LIMIT ? OFFSET ?`
+    const args = [...values, options.limit ?? -1, options.offset ?? 0]
+    const database = getDatabase()
+    const sessions = database.prepare(`SELECT * FROM workout_sessions ${where} ${order} LIMIT ? OFFSET ?`).all(...args)
+    if (!sessions.length) return []
+    const exercises = database.prepare(`SELECT * FROM workout_exercises WHERE session_id IN (${selection}) ORDER BY order_index`).all(...args)
+    const sets = database.prepare(`SELECT s.* FROM workout_sets s JOIN workout_exercises e ON e.id = s.exercise_id WHERE e.session_id IN (${selection}) ORDER BY s.set_index`).all(...args)
+    const setsByExercise = new Map<string, Array<Record<string, unknown>>>()
+    for (const set of sets) {
+      const id = String(set.exercise_id)
+      if (!setsByExercise.has(id)) setsByExercise.set(id, [])
+      setsByExercise.get(id)!.push({ ...set, completed: Boolean(set.completed) })
+    }
+    const exercisesBySession = new Map<string, Array<Record<string, unknown>>>()
+    for (const exercise of exercises) {
+      const id = String(exercise.session_id)
+      if (!exercisesBySession.has(id)) exercisesBySession.set(id, [])
+      exercisesBySession.get(id)!.push({ ...exercise, sets: setsByExercise.get(String(exercise.id)) || [] })
+    }
+    return sessions.map(session => ({ ...session, exercises: exercisesBySession.get(String(session.id)) || [] })) as WorkoutRecord[]
+  },
+
+  countWorkouts(options: WorkoutQuery = {}) {
+    const { where, values } = workoutFilter(options)
+    return Number(getDatabase().prepare(`SELECT COUNT(*) AS count FROM workout_sessions ${where}`).get(...values)!.count)
   },
 
   getWorkout,

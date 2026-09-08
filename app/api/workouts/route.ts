@@ -9,20 +9,22 @@ export const runtime = "nodejs"
 export async function GET(request: NextRequest) {
   try {
     const query = parseInput(workoutQuerySchema, Object.fromEntries(request.nextUrl.searchParams))
-    const workouts = wellnessDb.listWorkouts({
+    const filters = {
       date: query.date,
       startDate: query.start_date,
       endDate: query.end_date,
       status: query.status,
       type: query.type,
-    })
+    }
+    const workouts = wellnessDb.listWorkouts({ ...filters, limit: query.limit, offset: query.offset })
+    const total = wellnessDb.countWorkouts(filters)
     return successResponse({
-      workouts: workouts.slice(query.offset, query.offset + query.limit),
+      workouts,
       pagination: {
-        total: workouts.length,
+        total,
         limit: query.limit,
         offset: query.offset,
-        has_more: workouts.length > query.offset + query.limit,
+        has_more: total > query.offset + query.limit,
       },
     })
   } catch (error) {
