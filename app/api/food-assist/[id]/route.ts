@@ -31,6 +31,7 @@ export async function PATCH(request: Request, context: Context) {
     const body = await readJson(request)
     const saveLink = foodAssistSaveSchema.safeParse(body)
     if (saveLink.success) {
+      if (session.status === "saved" && session.meal_id === saveLink.data.meal_id) return successResponse({ session })
       if (session.status !== "suggested") throw new NotFoundError("食材搭配尚未确认")
       if (!localDb.getMeal(saveLink.data.meal_id)) throw new NotFoundError("餐食记录不存在")
       return successResponse({ session: wellnessDb.updateFoodAssist(id, { status: "saved", meal_id: saveLink.data.meal_id }) })

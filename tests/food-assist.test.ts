@@ -122,16 +122,24 @@ test("food action assistant", async t => {
     })
 
     await t.test("links the session only after a confirmed meal is saved", async () => {
+      const { mealDraftInput } = await import("../lib/food-assist-draft")
+      const draftResponse = await draftRoute.POST(jsonRequest({}), { params: Promise.resolve({ id: sessionId }) })
+      const { data: { draft } } = await draftResponse.json()
+      assert.throws(() => mealDraftInput(draft), /确认/)
+      const mealInput = mealDraftInput({ ...draft, calories: 100, protein: 1, carbs: 25, fats: 0 })
       const mealResponse = await mealsRoute.POST(new NextRequest("http://localhost/api/meals", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ meal_name: "香蕉", meal_type: "snack", meal_date: "2099-09-03", meal_time: "12:00:00", calories: 100, protein: 1, carbs: 25, fats: 0 }),
+        body: JSON.stringify(mealInput),
       }))
+      assert.equal(mealResponse.status, 201)
       const mealId = (await mealResponse.json() as { data: { meal: { id: string } } }).data.meal.id
       const linked = await sessionRoute.PATCH(jsonRequest({ status: "saved", meal_id: mealId }), { params: Promise.resolve({ id: sessionId }) })
       const body = await linked.json() as { data: { session: { status: string; meal_id: string } } }
       assert.equal(body.data.session.status, "saved")
       assert.equal(body.data.session.meal_id, mealId)
+      assert.equal((await sessionRoute.PATCH(jsonRequest({ status: "saved", meal_id: mealId }), { params: Promise.resolve({ id: sessionId }) })).status, 200)
+      assert.equal(localDb.listMeals().total, 1)
     })
   } finally {
     if (imageUrl) {
