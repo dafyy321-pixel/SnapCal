@@ -516,6 +516,19 @@ function initializeDatabase(database: DatabaseSync): void {
       database.exec("PRAGMA user_version = 3")
     }
 
+    if (currentVersion < 4) {
+      // Invalidate cached advice in the same transaction as its source records.
+      for (const table of ["user_meals", "daily_checkins", "workout_sessions", "user_profiles"]) {
+        for (const operation of ["INSERT", "UPDATE", "DELETE"]) {
+          database.exec(`CREATE TRIGGER invalidate_actions_${table}_${operation.toLowerCase()}
+            AFTER ${operation} ON ${table} BEGIN
+              UPDATE action_cards SET status = 'replaced', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE status = 'active';
+            END`)
+        }
+      }
+      database.exec("PRAGMA user_version = 4")
+    }
+
     database.exec("COMMIT")
   } catch (error) {
     database.exec("ROLLBACK")
