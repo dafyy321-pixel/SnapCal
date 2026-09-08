@@ -59,7 +59,7 @@ test("Asia/Shanghai midnight keeps meals, workouts and actions on the local date
       currentTime: afterMidnight.time,
       meals: [],
       workouts: [],
-      weeklyCompletedWorkouts: 0,
+      weeklyCompletedTrainingDays: 0,
       trainingDaysGoal: 3,
       checkin: null,
     })[0]

@@ -60,7 +60,7 @@ test("action card engine", async t => {
     currentTime: "18:00:00",
     meals: [] as Array<{ meal_time: string }>,
     workouts: [] as WorkoutRecord[],
-    weeklyCompletedWorkouts: 0,
+    weeklyCompletedTrainingDays: 0,
     trainingDaysGoal: 3,
     checkin,
   }
@@ -93,7 +93,7 @@ test("action card engine", async t => {
     })
 
     await t.test("falls back to a low-noise reflection", () => {
-      const candidates = buildActionCandidates({ ...facts, weeklyCompletedWorkouts: 3 })
+      const candidates = buildActionCandidates({ ...facts, weeklyCompletedTrainingDays: 3 })
       assert.deepEqual(candidates.map(item => item.id), ["daily-reflection"])
     })
 
@@ -130,6 +130,17 @@ test("action card engine", async t => {
       const completed = await action.PATCH(request({ status: "completed", reason: "已完成" }), context)
       assert.equal(completed.status, 200)
       assert.equal((await completed.json() as { data: { action_card: { status: string } } }).data.action_card.status, "completed")
+    })
+
+    await t.test("weekly goals count distinct completed training dates", async () => {
+      localDb.updateProfile({ training_days_goal: 3 })
+      wellnessDb.upsertCheckin(date, { energy: 4, hunger: 3, soreness: 2 })
+      const sessions = Array.from({ length: 3 }, () => wellnessDb.createWorkout({ ...workout("completed", "12:00:00"), session_date: "2099-09-02" }))
+      const card = await generateActionCard(date)
+      assert.equal(card.candidate_id, "short-workout")
+      assert.equal(card.input_snapshot.weekly_completed_training_days, 1)
+      sessions.forEach(session => wellnessDb.deleteWorkout(session.id))
+      wellnessDb.deleteCheckin(date)
     })
 
     await t.test("source record changes invalidate advice for both day reads and generation", async () => {

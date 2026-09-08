@@ -11,7 +11,7 @@ type ActionFacts = {
   currentTime: string
   meals: Pick<MealRecord, "meal_time">[]
   workouts: WorkoutRecord[]
-  weeklyCompletedWorkouts: number
+  weeklyCompletedTrainingDays: number
   trainingDaysGoal: number
   checkin: DailyCheckinRecord | null
 }
@@ -59,7 +59,7 @@ export function buildActionCandidates(facts: ActionFacts): ActionCandidate[] {
   if (planned && facts.checkin && (facts.checkin.energy <= 2 || facts.checkin.soreness >= 4)) {
     result.push(candidate({ id: `adjust-workout:${planned.id}`, kind: "recovery", priority: 75, title: "把今天训练调轻一点", action_text: "可缩短时长、减少组数，或改做 10 分钟活动与拉伸。", rationale_codes: ["planned_workout_soon", facts.checkin.energy <= 2 ? "low_energy" : "higher_soreness"], date: facts.date, payload: { workout_id: planned.id } }))
   }
-  if (facts.weeklyCompletedWorkouts < facts.trainingDaysGoal && !facts.workouts.some(workout => workout.status === "completed") && (facts.checkin?.energy || 0) >= 3) {
+  if (facts.weeklyCompletedTrainingDays < facts.trainingDaysGoal && !facts.workouts.some(workout => workout.status === "completed") && (facts.checkin?.energy || 0) >= 3) {
     result.push(candidate({ id: "short-workout", kind: "workout", priority: 60, title: "今天安排一次短训练", action_text: "从 10～30 分钟模板中选一个，按今天状态完成即可。", rationale_codes: ["below_weekly_goal", "enough_energy"], date: facts.date, payload: { template_duration_range: [10, 30] } }))
   }
   result.push(candidate({ id: "daily-reflection", kind: "reflection", priority: 10, title: "保持今天的节奏", action_text: "回顾已记录内容，按原计划继续即可。", rationale_codes: ["core_records_complete"], date: facts.date }))
@@ -96,12 +96,13 @@ export async function generateActionCard(date: string, options: { force?: boolea
   const now = options.now || localDateParts()
   const profile = localDb.getProfile()
   const workouts = wellnessDb.listWorkouts({ date })
+  const weeklyCompletedTrainingDays = new Set(wellnessDb.listWorkouts({ startDate: weekStart(date), endDate: date, status: "completed" }).map(workout => workout.session_date)).size
   const candidates = buildActionCandidates({
     date,
     currentTime: now.date === date ? now.time : "12:00:00",
     meals: localDb.listMeals({ date }).meals,
     workouts,
-    weeklyCompletedWorkouts: wellnessDb.listWorkouts({ startDate: weekStart(date), endDate: date, status: "completed" }).length,
+    weeklyCompletedTrainingDays: weeklyCompletedTrainingDays,
     trainingDaysGoal: profile.training_days_goal,
     checkin: wellnessDb.getCheckin(date),
   })
@@ -109,7 +110,7 @@ export async function generateActionCard(date: string, options: { force?: boolea
     date,
     meal_count: localDb.listMeals({ date }).total,
     workout_count: workouts.length,
-    weekly_completed_workouts: wellnessDb.listWorkouts({ startDate: weekStart(date), endDate: date, status: "completed" }).length,
+    weekly_completed_training_days: weeklyCompletedTrainingDays,
     training_days_goal: profile.training_days_goal,
     checkin: wellnessDb.getCheckin(date) ? {
       energy: wellnessDb.getCheckin(date)!.energy,
@@ -130,7 +131,7 @@ export async function generateActionCard(date: string, options: { force?: boolea
     missing_checkin: "今天还没有状态记录",
     recent_completed_workout: "刚完成训练且尚未记录之后的一餐",
     planned_workout_soon: "两小时内有计划训练",
-    below_weekly_goal: "本周完成次数仍低于目标",
+    below_weekly_goal: "本周训练天数仍低于目标",
     core_records_complete: "主要记录已经完成",
   }[code] || code)).join("；")
   let confidence: ConfidenceLevel = selected.id === "daily-reflection" ? "medium" : "high"
