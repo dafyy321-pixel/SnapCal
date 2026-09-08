@@ -5,11 +5,11 @@ import Image from "next/image"
 import { Activity, BatteryMedium, Check, Flame, Ruler, Sparkles, Trash2, Utensils } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { BottomNav } from "@/components/bottom-nav"
-import { FabButton } from "@/components/fab-button"
 import { FoodImage } from "@/components/optimized-image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { localDateParts } from "@/lib/date-utils"
+import { requestData } from "@/lib/api-services"
 
 type Meal = {
   id: string
@@ -84,6 +84,7 @@ export default function HomePage() {
   const [checkin, setCheckin] = useState<Checkin | null>(null)
   const [bodyMetric, setBodyMetric] = useState<BodyMetric | null>(null)
   const [actionCard, setActionCard] = useState<ActionCard | null>(null)
+  const [actionBusy, setActionBusy] = useState(false)
   const [workoutMinutes, setWorkoutMinutes] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -155,13 +156,21 @@ export default function HomePage() {
   }
 
   async function respondToAction(status: "completed" | "dismissed" | "replaced", reason?: string) {
-    if (!actionCard) return
-    await fetch(`/api/actions/${actionCard.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status, reason }) })
-    setActionCard(null)
-    if (status === "replaced") {
-      const response = await fetch("/api/actions/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date, force: true }) })
-      const body = await response.json()
-      if (response.ok && body.success) setActionCard(body.data.action_card)
+    if (!actionCard || actionBusy || loading) return
+    setActionBusy(true)
+    setError("")
+    try {
+      await requestData(`/api/actions/${actionCard.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status, reason }) })
+      setActionCard(null)
+      if (status === "replaced") {
+        const data = await requestData<{ action_card: ActionCard }>("/api/actions/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date, force: true }) })
+        setActionCard(data.action_card)
+      }
+    } catch (error) {
+      // A lost response may follow a successful write; retry reloads authoritative state.
+      setError(error instanceof TypeError ? "连接本地服务失败，未能确认操作结果。请确认服务已启动后点击重试。" : error instanceof Error ? error.message : "更新行动失败，请重试")
+    } finally {
+      setActionBusy(false)
     }
   }
 
@@ -178,9 +187,9 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <main className="max-w-md mx-auto px-4 py-6 space-y-5">
-        <header className="flex items-center justify-between"><div className="flex items-center gap-2"><Image src="/logo.png" alt="" width={32} height={32} /><h1 className="text-2xl font-bold">SnapCal</h1></div><input aria-label="选择日期" type="date" max={todayString()} value={date} onChange={event => { setLoading(true); setError(""); setDate(event.target.value) }} className="border rounded-lg px-2 py-1.5 bg-card text-sm" /></header>
-        {error && <Card className="p-3 text-sm text-destructive">{error}<Button variant="link" onClick={() => { setLoading(true); setError(""); void load() }}>重试</Button></Card>}
-        {actionCard && <Card className="gap-3 border-primary/20 bg-gradient-to-br from-primary/5 to-background p-5"><div className="flex items-center justify-between"><span className="flex items-center gap-2 text-xs font-medium text-primary"><Sparkles className="size-4" />今日行动</span><span className="text-xs text-muted-foreground">{actionCard.source === "ai_enhanced" ? "AI 增强" : "本地规则"} · {actionCard.confidence === "high" ? "依据较完整" : "数据有限"}</span></div><div><h2 className="text-lg font-semibold">{actionCard.title}</h2><p className="mt-1 text-sm">{actionCard.action_text}</p><p className="mt-2 text-xs text-muted-foreground">依据：{actionCard.rationale}</p><p className="mt-1 text-xs text-muted-foreground">有效至 {new Date(actionCard.valid_until).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</p></div><Button onClick={openAction}>去完成</Button><div className="grid grid-cols-4 gap-1"><Button size="sm" variant="outline" onClick={() => respondToAction("completed")}><Check />完成</Button><Button size="sm" variant="ghost" onClick={() => respondToAction("dismissed", "not_suitable")}>不适合</Button><Button size="sm" variant="ghost" onClick={() => respondToAction("dismissed", "later")}>稍后</Button><Button size="sm" variant="ghost" onClick={() => respondToAction("replaced", "another")}>换一个</Button></div></Card>}
+        <header className="flex items-center justify-between"><div className="flex items-center gap-2"><Image src="/logo.png" alt="" width={32} height={32} /><h1 className="text-2xl font-bold">SnapCal</h1></div><input aria-label="选择日期" disabled={actionBusy} type="date" max={todayString()} value={date} onChange={event => { setLoading(true); setError(""); setDate(event.target.value) }} className="border rounded-lg px-2 py-1.5 bg-card text-sm" /></header>
+        {error && <Card role="alert" className="p-3 text-sm text-destructive">{error}<Button disabled={actionBusy || loading} variant="link" onClick={() => { setLoading(true); setError(""); void load() }}>重试</Button></Card>}
+        {actionCard && <Card className="gap-3 border-primary/20 bg-gradient-to-br from-primary/5 to-background p-5"><div className="flex items-center justify-between"><span className="flex items-center gap-2 text-xs font-medium text-primary"><Sparkles className="size-4" />今日行动</span><span className="text-xs text-muted-foreground">{actionCard.source === "ai_enhanced" ? "AI 增强" : "本地规则"} · {actionCard.confidence === "high" ? "依据较完整" : "数据有限"}</span></div><div><h2 className="text-lg font-semibold">{actionCard.title}</h2><p className="mt-1 text-sm">{actionCard.action_text}</p><p className="mt-2 text-xs text-muted-foreground">依据：{actionCard.rationale}</p><p className="mt-1 text-xs text-muted-foreground">有效至 {new Date(actionCard.valid_until).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</p></div><Button disabled={actionBusy || loading} onClick={openAction}>去完成</Button><div className="grid grid-cols-4 gap-1"><Button size="sm" variant="outline" disabled={actionBusy || loading} onClick={() => respondToAction("completed")}><Check />完成</Button><Button size="sm" variant="ghost" disabled={actionBusy || loading} onClick={() => respondToAction("dismissed", "not_suitable")}>不适合</Button><Button size="sm" variant="ghost" disabled={actionBusy || loading} onClick={() => respondToAction("dismissed", "later")}>稍后</Button><Button size="sm" variant="ghost" disabled={actionBusy || loading} onClick={() => respondToAction("replaced", "another")}>换一个</Button></div></Card>}
         <div className="grid grid-cols-3 gap-2"><Card className="gap-1 p-3"><Activity className="size-4 text-primary" /><span className="text-xs text-muted-foreground">训练</span><strong>{workouts.length} 次</strong><span className="text-[11px] text-muted-foreground">{workoutMinutes} 分钟</span></Card><Card className="gap-1 p-3"><BatteryMedium className="size-4 text-primary" /><span className="text-xs text-muted-foreground">状态</span><strong>{checkin ? `精力 ${checkin.energy}` : "未打卡"}</strong><span className="text-[11px] text-muted-foreground">{checkin ? `饥饿 ${checkin.hunger} · 酸痛 ${checkin.soreness}` : "三次点击完成"}</span></Card><Card className="gap-1 p-3"><Ruler className="size-4 text-primary" /><span className="text-xs text-muted-foreground">身体</span><strong>{bodyMetric?.weight_kg == null ? "未记录" : `${bodyMetric.weight_kg}kg`}</strong><span className="text-[11px] text-muted-foreground">{bodyMetric?.waist_cm == null ? "腰围 —" : `腰围 ${bodyMetric.waist_cm}cm`}</span></Card></div>
         <Card className="p-5 bg-gradient-to-br from-amber-50 to-orange-50">
           <div className="flex items-center gap-2 text-sm text-muted-foreground"><Flame className="w-4 h-4 text-orange-500" />当日摄入</div>
@@ -200,9 +209,8 @@ export default function HomePage() {
             </div>
           </Card>)}
         </div>
-        {loading ? <Card className="p-8 text-center text-muted-foreground">加载中…</Card> : grouped.length === 0 ? <Card className="p-8 text-center"><p className="font-medium">这天还没有餐食记录</p><p className="text-sm text-muted-foreground mt-2">点击右下角按钮拍照识别</p></Card> : grouped.map(group => <section key={group.type} className="space-y-2"><h2 className="font-semibold">{group.label}</h2>{group.meals.map(meal => <Card key={meal.id} className="relative flex cursor-pointer flex-col items-center gap-2 p-3 text-center" onClick={() => router.push(`/meal/${meal.id}`)}><FoodImage src={meal.image_url || "/placeholder.svg"} alt={meal.meal_name} foodName={meal.meal_name} width={64} height={64} className="h-16 w-16 shrink-0" imageClassName="h-16 w-16 object-cover" /><div className="min-w-0"><div className="truncate font-medium">{meal.meal_name}</div><div className="mt-1 text-xs text-muted-foreground">{meal.meal_time.slice(0, 5)} · {Math.round(meal.calories)} kcal</div></div><Button aria-label={`删除${meal.meal_name}`} variant="ghost" size="icon" className="absolute right-3 top-3" onClick={event => { event.stopPropagation(); removeMeal(meal.id) }}><Trash2 className="w-4 h-4 text-destructive" /></Button></Card>)}</section>)}
+        {loading ? <Card className="p-8 text-center text-muted-foreground">加载中…</Card> : grouped.length === 0 ? <Card className="p-8 text-center"><p className="font-medium">这天还没有餐食记录</p><p className="text-sm text-muted-foreground mt-2">点击底部添加按钮拍照识别</p></Card> : grouped.map(group => <section key={group.type} className="space-y-2"><h2 className="font-semibold">{group.label}</h2>{group.meals.map(meal => <Card key={meal.id} className="relative flex cursor-pointer flex-col items-center gap-2 p-3 text-center" onClick={() => router.push(`/meal/${meal.id}`)}><FoodImage src={meal.image_url || "/placeholder.svg"} alt={meal.meal_name} foodName={meal.meal_name} width={64} height={64} className="h-16 w-16 shrink-0" imageClassName="h-16 w-16 object-cover" /><div className="min-w-0"><div className="truncate font-medium">{meal.meal_name}</div><div className="mt-1 text-xs text-muted-foreground">{meal.meal_time.slice(0, 5)} · {Math.round(meal.calories)} kcal</div></div><Button aria-label={`删除${meal.meal_name}`} variant="ghost" size="icon" className="absolute right-3 top-3" onClick={event => { event.stopPropagation(); removeMeal(meal.id) }}><Trash2 className="w-4 h-4 text-destructive" /></Button></Card>)}</section>)}
       </main>
-      <FabButton />
       <BottomNav />
     </div>
   )

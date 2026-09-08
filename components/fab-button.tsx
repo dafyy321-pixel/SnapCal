@@ -16,7 +16,7 @@ export function FabButton() {
   ]
   return (
     <Sheet>
-      <SheetTrigger asChild><Button aria-label="打开快捷记录" size="icon" className="fixed right-6 bottom-20 z-50 size-14 rounded-full shadow-xl"><Plus className="size-6" /></Button></SheetTrigger>
+      <SheetTrigger asChild><Button aria-label="打开快捷记录" size="icon" className="absolute -top-5 left-1/2 size-[68px] -translate-x-1/2 rounded-full shadow-[0_6px_16px_#10202a24] dark:shadow-[0_6px_16px_#00000070]"><Plus className="size-[30px]" /></Button></SheetTrigger>
       <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
         <SheetHeader><SheetTitle>快速记录</SheetTitle><SheetDescription>选择要添加的内容</SheetDescription></SheetHeader>
         <div className="grid gap-2 px-4 pb-4">{actions.map(({ icon: Icon, label, path }) => <SheetClose asChild key={path}><button type="button" onClick={() => router.push(path)} className="flex min-h-12 items-center gap-3 rounded-xl border bg-card px-4 text-left text-sm font-medium"><Icon className="size-5" />{label}</button></SheetClose>)}</div>
