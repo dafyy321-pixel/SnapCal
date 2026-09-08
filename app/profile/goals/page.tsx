@@ -29,7 +29,7 @@ type GoalProfile = {
 }
 
 function commaList(value: string) {
-  return value.split(/[,，]/).map(item => item.trim()).filter(Boolean)
+  return value.split(/[,，、]/).map(item => item.trim()).filter(Boolean)
 }
 
 export default function GoalsPage() {
