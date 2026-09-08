@@ -77,6 +77,35 @@ test("food action assistant", async t => {
       assert.match(body.data.session.primary_suggestion.cautions.join(""), /花生/)
     })
 
+    await t.test("AI cannot reintroduce excluded allergens in either suggestion", async () => {
+      const { suggestFoodPairings } = await import("../lib/food-assist-service")
+      const { wellnessDb } = await import("../lib/wellness-db")
+      const session = wellnessDb.getFoodAssist(sessionId)!
+      const originalFetch = globalThis.fetch
+      process.env.OPENAI_API_KEY = "test"
+      process.env.OPENAI_MODEL = "test"
+      localDb.updateProfile({ ai_consent_at: new Date().toISOString() })
+      try {
+        for (const unsafeSide of ["primary", "alternative"]) {
+          globalThis.fetch = async (_url, init) => {
+            const sent = JSON.parse(String(init?.body))
+            assert.doesNotMatch(sent.messages[0].content, new RegExp(session.confirmed_items[0].id))
+            const safe = { title: "搭配", item_ids: [session.confirmed_items[1].id], portion_hints: [], rationale: "按需选择", cautions: [] }
+            return Response.json({ choices: [{ message: { content: JSON.stringify({ primary: safe, alternative: safe, [unsafeSide]: { ...safe, item_ids: [session.confirmed_items[0].id] } }) } }] })
+          }
+          const result = await suggestFoodPairings(session, localDb.getProfile(), { workout: null, today_nutrition: { calories: 0, protein: 0, carbs: 0, fats: 0 } })
+          assert.equal(result.ai_run_id, null)
+          assert.deepEqual(result.primary.item_ids, [session.confirmed_items[1].id])
+          assert.deepEqual(result.alternative.item_ids, [session.confirmed_items[1].id])
+        }
+      } finally {
+        globalThis.fetch = originalFetch
+        delete process.env.OPENAI_API_KEY
+        delete process.env.OPENAI_MODEL
+        localDb.updateProfile({ ai_consent_at: null })
+      }
+    })
+
     await t.test("returns the confirmed session", async () => {
       const response = await sessionRoute.GET(new Request("http://localhost"), { params: Promise.resolve({ id: sessionId }) })
       assert.equal(response.status, 200)

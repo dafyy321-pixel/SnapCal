@@ -59,7 +59,7 @@ export async function recognizeFoodInventory(imageUrl: string, logInput: unknown
 }
 
 function localSuggestions(session: FoodAssistRecord, profile: { dietary_preferences: string[]; allergies: string[] }, facts: PairingFacts): { primary: FoodSuggestion; alternative: FoodSuggestion; ai_run_id: null } {
-  const blocked = session.confirmed_items.filter(item => profile.allergies.some(allergy => item.name.includes(allergy)))
+  const blocked = session.confirmed_items.filter(item => isAllergen(item, profile.allergies))
   const usable = session.confirmed_items.filter(item => !blocked.includes(item))
   const mainItems = usable.slice(0, 3)
   const alternativeItems = usable.length > 1 ? [...usable].reverse().slice(0, 2) : usable
@@ -88,10 +88,16 @@ function localSuggestions(session: FoodAssistRecord, profile: { dietary_preferen
   }
 }
 
+function isAllergen(item: FoodAssistItem, allergies: string[]) {
+  const name = item.name.normalize("NFKC").toLocaleLowerCase()
+  return allergies.flatMap(value => value.split(/[,，、]/)).map(value => value.trim().normalize("NFKC").toLocaleLowerCase()).filter(Boolean).some(allergy => name.includes(allergy))
+}
+
 export async function suggestFoodPairings(session: FoodAssistRecord, profile: { dietary_preferences: string[]; allergies: string[]; ai_consent_at: string | null }, facts: PairingFacts) {
   const fallback = localSuggestions(session, profile, facts)
+  const safeItems = session.confirmed_items.filter(item => !isAllergen(item, profile.allergies))
   const config = getAiConfig()
-  if (!profile.ai_consent_at || !config.apiKey || !config.textModel) return fallback
+  if (!safeItems.length || !profile.ai_consent_at || !config.apiKey || !config.textModel) return fallback
   try {
     const result = await createChatCompletion({
       capability: "text",
@@ -101,12 +107,16 @@ export async function suggestFoodPairings(session: FoodAssistRecord, profile: { 
       schema: suggestionSchema,
       messages: [{
         role: "user",
-        content: `根据已确认食材生成主方案和替代方案，只能使用给出的 item id；结合距训练时间、训练类型与强度、当天营养汇总和饮食限制；信息不足时明确说明，不提供补剂或精确克数。返回 JSON。${JSON.stringify({ context: session.context, minutes_until_workout: session.minutes_until_workout, workout: facts.workout, today_nutrition: facts.today_nutrition, items: session.confirmed_items, dietary_preferences: profile.dietary_preferences, allergies: profile.allergies })}`,
+        content: `根据已确认食材生成主方案和替代方案，只能使用给出的 item id；结合距训练时间、训练类型与强度、当天营养汇总和饮食限制；信息不足时明确说明，不提供补剂或精确克数。返回 JSON。${JSON.stringify({ context: session.context, minutes_until_workout: session.minutes_until_workout, workout: facts.workout, today_nutrition: facts.today_nutrition, items: safeItems, dietary_preferences: profile.dietary_preferences, allergies: profile.allergies })}`,
       }],
     })
-    const ids = new Set(session.confirmed_items.map(item => item.id))
+    const ids = new Set(safeItems.map(item => item.id))
     if ([...result.data.primary.item_ids, ...result.data.alternative.item_ids].some(id => !ids.has(id))) return fallback
-    return { ...result.data, ai_run_id: result.runId }
+    return {
+      primary: { ...result.data.primary, cautions: [...new Set([...fallback.primary.cautions, ...result.data.primary.cautions])] },
+      alternative: { ...result.data.alternative, cautions: [...new Set([...fallback.alternative.cautions, ...result.data.alternative.cautions])] },
+      ai_run_id: result.runId,
+    }
   } catch {
     return fallback
   }
