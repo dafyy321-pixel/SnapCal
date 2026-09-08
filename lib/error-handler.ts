@@ -48,8 +48,8 @@ export function errorResponse(error: unknown): NextResponse<ApiResponse> {
     }, { status: error.statusCode })
   }
 
-  const known = error instanceof Error ? error as Error & { code?: string } : null
-  const constraint = known?.code?.startsWith("SQLITE_CONSTRAINT")
+  const known = error instanceof Error ? error as Error & { code?: string; errcode?: number } : null
+  const constraint = known?.code?.startsWith("SQLITE_CONSTRAINT") || (known?.code === "ERR_SQLITE_ERROR" && [1555, 2067, 787].includes(known.errcode ?? 0))
   console.error("[API Error]", error)
   return NextResponse.json({
     success: false,

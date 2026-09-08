@@ -2,6 +2,7 @@ import { randomUUID, createHash } from "node:crypto"
 import type { SQLInputValue } from "node:sqlite"
 import { getDatabase } from "./local-db"
 import { localDateParts } from "./date-utils"
+import { NotFoundError } from "./error-handler"
 import type {
   ActionCardRecord,
   BodyMetricRecord,
@@ -132,6 +133,7 @@ export const wellnessDb = {
   getWorkout,
 
   createWorkout(input: WorkoutInput): WorkoutRecord {
+    if (input.template_id && !this.getTemplate(input.template_id)) throw new NotFoundError("训练模板不存在")
     const database = getDatabase()
     const id = randomUUID()
     const timestamp = now()
@@ -154,6 +156,7 @@ export const wellnessDb = {
 
   updateWorkout(id: string, updates: Partial<WorkoutInput>): WorkoutRecord | null {
     if (!getWorkout(id)) return null
+    if (updates.template_id && !this.getTemplate(updates.template_id)) throw new NotFoundError("训练模板不存在")
     const database = getDatabase()
     const allowed = new Set(["session_date", "session_time", "title", "workout_type", "status", "source", "template_id", "duration_minutes", "perceived_effort", "energy_after", "notes"])
     const entries = Object.entries(updates).filter(([key, value]) => allowed.has(key) && value !== undefined)

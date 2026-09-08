@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { randomUUID } from "node:crypto"
+import { NotFoundError } from "./error-handler"
 import { DatabaseSync, type SQLInputValue } from "node:sqlite"
 
 export type MealRecord = {
@@ -726,7 +727,7 @@ export const localDb = {
     database.exec("BEGIN IMMEDIATE")
     try {
       if (!database.prepare("SELECT id FROM meal_analysis_results WHERE id = ?").get(analysisId)) {
-        throw new Error("分析结果不存在")
+        throw new NotFoundError("分析结果不存在")
       }
       const meal = this.createMeal(input)
       database.prepare(
