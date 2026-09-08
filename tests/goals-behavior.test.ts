@@ -18,6 +18,9 @@ test("saving loaded goals preserves each allergy, preference and equipment item"
   try {
     const ui = render(createElement(AppRouterContext.Provider, { value: { push() {}, prefetch() {} } as never }, createElement(PathnameContext.Provider, { value: "/profile/goals" }, createElement(GoalsPage))))
     await waitFor(() => assert.equal((ui.getByLabelText("过敏食物") as HTMLInputElement).value, "花生、虾"))
+    for (const name of ["每日卡路里目标", "每日蛋白质目标", "每日碳水目标", "每日脂肪目标", "每周训练目标"]) {
+      assert.ok(ui.getByRole("slider", { name }))
+    }
     fireEvent.click(ui.getByRole("button", { name: "保存目标" }))
     await waitFor(() => assert.deepEqual(submitted?.allergies, lists.allergies))
     assert.deepEqual(submitted?.dietary_preferences, lists.dietary_preferences)
