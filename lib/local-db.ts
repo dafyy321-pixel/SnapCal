@@ -168,7 +168,7 @@ function initializeDatabase(database: DatabaseSync): void {
   `)
 
   const currentVersion = Number((database.prepare("PRAGMA user_version").get() as { user_version: number }).user_version)
-  if (currentVersion >= 3) return
+  if (currentVersion >= 5) return
 
   database.exec("BEGIN IMMEDIATE")
   try {
@@ -527,6 +527,14 @@ function initializeDatabase(database: DatabaseSync): void {
         }
       }
       database.exec("PRAGMA user_version = 4")
+    }
+
+    if (currentVersion < 5) {
+      database.exec(`
+        DROP INDEX IF EXISTS idx_action_cards_one_active;
+        CREATE UNIQUE INDEX idx_action_cards_one_active ON action_cards(card_date) WHERE status = 'active';
+        PRAGMA user_version = 5;
+      `)
     }
 
     database.exec("COMMIT")
