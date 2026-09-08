@@ -1,3 +1,4 @@
+import { assertContentType, assertWriteOrigin } from "@/lib/request-security"
 import { NextRequest } from "next/server"
 import { z } from "zod"
 import { getAiConfig, validateAndProcessFoodData, type ValidatedFoodAnalysis } from "@/lib/ai-config"
@@ -31,6 +32,8 @@ function mockAnalysis(hash: string): ValidatedFoodAnalysis {
 
 async function handler(request: NextRequest) {
   try {
+    assertWriteOrigin(request)
+    assertContentType(request, "multipart/form-data")
     const contentLength = Number(request.headers.get("content-length"))
     const maxRequestSize = (DEFAULT_IMAGE_VALIDATION.maxSize || 5 * 1024 * 1024) + 1024 * 1024
     if (Number.isFinite(contentLength) && contentLength > maxRequestSize) {

@@ -1,5 +1,6 @@
 import type { output, ZodTypeAny } from "zod"
 import { ValidationError } from "./error-handler"
+import { assertContentType, assertWriteOrigin } from "./request-security"
 
 export function parseInput<TSchema extends ZodTypeAny>(schema: TSchema, input: unknown): output<TSchema> {
   const result = schema.safeParse(input)
@@ -16,6 +17,8 @@ export function parseInput<TSchema extends ZodTypeAny>(schema: TSchema, input: u
 }
 
 export async function readJson(request: Request): Promise<unknown> {
+  assertWriteOrigin(request)
+  assertContentType(request, "application/json")
   try {
     return await request.json()
   } catch {

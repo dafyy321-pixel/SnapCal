@@ -1,3 +1,4 @@
+import { assertContentType, assertWriteOrigin } from "@/lib/request-security"
 import { NextRequest } from "next/server"
 import { getAiConfig } from "@/lib/ai-config"
 import { parseInput } from "@/lib/api-validation"
@@ -14,6 +15,8 @@ export const runtime = "nodejs"
 
 export async function POST(request: NextRequest) {
   try {
+    assertWriteOrigin(request)
+    assertContentType(request, "multipart/form-data")
     let formData: FormData
     try { formData = await request.formData() } catch { throw new ValidationError("请使用 multipart/form-data 上传图片") }
     const image = formData.get("image")
