@@ -96,6 +96,7 @@ test("OpenAI-compatible client", async t => {
       clearAiEnv()
       process.env.OPENAI_API_KEY = "secret-key"
       process.env.OPENAI_MODEL = "vision-model"
+      localDb.updateProfile({ ai_consent_at: new Date().toISOString() })
       let sentUrl = ""
       let sentBody = ""
       const response = await request((async (url, init) => {
@@ -134,6 +135,22 @@ test("OpenAI-compatible client", async t => {
     await t.test("rejects invalid JSON and schema mismatches", async () => {
       await assert.rejects(request((async () => completion("not json")) as typeof fetch), /有效 JSON/)
       await assert.rejects(request((async () => completion('{"wrong":true}')) as typeof fetch), /未通过校验/)
+    })
+
+    await t.test("withdrawal prevents a new send and a retry after a pending response", async () => {
+      localDb.updateProfile({ ai_consent_at: null })
+      let sends = 0
+      await assert.rejects(request(async () => { sends++; return completion() }), { code: "AI_CONSENT_REQUIRED" })
+      assert.equal(sends, 0)
+      for (const status of [429, 500]) {
+        localDb.updateProfile({ ai_consent_at: new Date().toISOString() })
+        let respond!: (response: Response) => void
+        const pending = request(async () => { sends++; return new Promise(resolve => { respond = resolve }) })
+        localDb.updateProfile({ ai_consent_at: null })
+        respond(completion("{}", status))
+        await assert.rejects(pending, { code: "AI_CONSENT_REQUIRED" })
+      }
+      assert.equal(sends, 2)
     })
 
     await t.test("returns redacted AI status and consent", async () => {

@@ -2,6 +2,7 @@ import { z, type ZodType } from "zod"
 import { createHash } from "node:crypto"
 import { getAiConfig } from "./ai-config"
 import { AppError } from "./error-handler"
+import { localDb } from "./local-db"
 import { wellnessDb } from "./wellness-db"
 
 export type ChatMessage = {
@@ -14,7 +15,7 @@ export type ChatMessage = {
 
 export class AiClientError extends AppError {
   constructor(message: string, public code: string, public status?: number) {
-    super(message, code === "AI_RATE_LIMITED" || code === "AI_BUSY" ? 429 : 502, code)
+    super(message, code === "AI_CONSENT_REQUIRED" ? 403 : code === "AI_RATE_LIMITED" || code === "AI_BUSY" ? 429 : 502, code)
     this.name = "AiClientError"
   }
 }
@@ -80,6 +81,7 @@ async function performChatCompletion<T>(input: CompletionInput<T>): Promise<Comp
   const config = getAiConfig()
   const model = input.capability === "vision" ? config.visionModel : config.textModel
   if (!config.apiKey || !model) throw new AiClientError("AI 服务尚未配置", "AI_NOT_CONFIGURED")
+  const consent = localDb.getProfile().ai_consent_at
 
   const startedAt = Date.now()
   const controller = new AbortController()
@@ -90,6 +92,9 @@ async function performChatCompletion<T>(input: CompletionInput<T>): Promise<Comp
   try {
     let response: Response | null = null
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (!consent || localDb.getProfile().ai_consent_at !== consent) {
+        throw new AiClientError("请先同意 AI 数据发送说明", "AI_CONSENT_REQUIRED")
+      }
       const now = Date.now()
       requests.sentAt = requests.sentAt.filter(timestamp => timestamp > now - 60 * 60 * 1000)
       if (requests.sentAt.length >= 20) throw new AiClientError("AI 每小时最多发送 20 次请求，请稍后重试", "AI_RATE_LIMITED")
